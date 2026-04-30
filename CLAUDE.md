@@ -7,7 +7,7 @@
 
 - Product: **fixmysite.in**
 - Type: Bootstrapped SaaS, solo founder, India-first
-- Stack: Next.js 14 (App Router) · Supabase · Razorpay · Twilio · Resend · Vercel
+- Stack: Next.js 16 (App Router, Turbopack) · React 19 · Tailwind v4 · Supabase · Razorpay · Twilio · Resend · Serwist (PWA) · Cloudflare R2 (briefs) · Vercel
 - Always PWA. Always mobile-first. Always security-first.
 
 ---
@@ -21,7 +21,14 @@
 - ALWAYS verify Razorpay webhook signatures before processing any event
 - ALWAYS enforce RLS on every Supabase table
 - NEVER trust `scan_id` from client without verifying `payment_status = 'paid'` server-side before returning full report
-- Rate limit: Phase 1 = 5/hour/IP, Phase 2 = 1/hour/IP
+- Rate limits (Upstash Redis, sliding window):
+  Phase 1 = 10/hour/IP · Phase 2 = 3/hour/IP · PDF = 5/hour/IP
+  send-developer = 3/hour/IP · payment routes = 20/hour/IP
+  check-previous = 20/hour/IP · classify-url = 30/hour/IP
+  brief generate = 5/hour/IP · screenshot upload = 10/hour/IP
+  enterprise verify-email = 5/hour/IP · enterprise verify-otp = 10/hour/IP
+  subscription webhook = no IP limit (HMAC is auth)
+  Implementation in `lib/security/rateLimit.ts`.
 
 ### Data
 - Scan results stored in Supabase `scans` table — see SPEC.md schema
@@ -41,8 +48,9 @@
 - Phase 1 and Phase 2 are separate API calls — never merge them
 - Phase 2 checks run in parallel where possible (Twilio + link checks + SSL simultaneously)
 - Twilio Lookup: one API call per unique phone number only — deduplicate before calling
+- Twilio Lookup cap: max 10 unique phone numbers per scan (caps spend at ~₹17/scan). Beyond 10 — flag as "not checked" warning in report, never silently drop.
 - Claude report generation: called ONCE after all checks complete — never mid-scan
-- Claude model: always `claude-sonnet-4-20250514`
+- Claude model: `claude-sonnet-4-6` for the main report generation, UX audit, and brief generation. Lightweight ancillary calls (return message, business-type detection) may use Haiku 4.5 (`claude-haiku-4-5-20251001`) — they're explicitly tagged as lightweight in their respective prompts.
 - Claude prompt context: pass raw check results as structured JSON, not narrative text
 
 ---
@@ -51,27 +59,44 @@
 
 ```
 /app
-  /page.tsx                          ← Landing page
-  /scanning/[scan_id]/page.tsx       ← Phase 1 result + price gate
-  /report/[scan_id]/page.tsx         ← Free preview
-  /report/[scan_id]/full/page.tsx    ← Full report (payment-gated)
+  /page.tsx                              ← Landing page
+  /scanning/[scan_id]/page.tsx           ← Phase 1 result + price gate
+  /report/[scan_id]/page.tsx             ← Free preview
+  /report/[scan_id]/full/page.tsx        ← Full report (payment-gated)
+  /brief/[scan_id]/page.tsx              ← Brief generator input (post-scan upsell)
+  /brief/[scan_id]/preview/page.tsx      ← Brief preview (pre-payment)
+  /brief/[scan_id]/full/page.tsx         ← Full brief + PDF (post-payment)
   /subscribe/page.tsx
   /agency/page.tsx
   /admin/page.tsx
   /privacy/page.tsx
   /terms/page.tsx
+  /institution/page.tsx                  ← Institution upsell stub
+  /sw.ts                                 ← Serwist service worker source
 
 /app/api
+  /scan/classify-url/route.ts            ← URL classification (runs before Phase 1)
   /scan/phase1/route.ts
+  /scan/check-previous/route.ts
   /scan/phase2/route.ts
   /payment/create-order/route.ts
   /payment/verify/route.ts
   /report/[scan_id]/route.ts
   /report/pdf/route.ts
   /report/send-developer/route.ts
+  /brief/generate/route.ts
+  /brief/pdf/route.ts
+  /brief/send/route.ts
+  /brief/payment/create-order/route.ts
+  /brief/payment/verify/route.ts
+  /enterprise/verify-email/route.ts      ← Domain match + MX check + OTP send
+  /enterprise/verify-otp/route.ts        ← OTP verify → mark inquiry verified
   /subscription/create/route.ts
   /subscription/webhook/route.ts
   /admin/scans/route.ts
+  /admin/briefs/route.ts
+  /admin/inquiries/route.ts
+  /admin/inquiries/[id]/approve/route.ts
 
 /lib
   /scan/extractor.ts    ← HTML parsing, phone/email regex
@@ -82,31 +107,44 @@
   /scan/images.ts       ← Old image detection via Last-Modified header
   /scan/ui.ts           ← UI quality checks (CTA, trust, alt text, wall of text)
   /scan/workflow.ts     ← Form audits, upload checks, CTA dead-ends (HTML layer)
+  /scan/trust.ts        ← Email identity check (Standard tier only)
   /scan/returnVisit.ts  ← Previous scan lookup + fix rate computation
+  /scan/classifier.ts   ← URL classification (runs before Phase 1) — imports lists from /constants/enterprise.ts
   /scan/phase1.ts       ← Phase 1 orchestrator
   /scan/phase2.ts       ← Phase 2 orchestrator
-  /claude/report.ts     ← Claude API call + prompt
+  /claude/report.ts     ← Claude report generation prompt
+  /claude/uxAudit.ts    ← Claude UX audit prompt (per page, max 5)
+  /claude/brief.ts      ← Claude developer brief generation prompt
+  /brief/detector.ts    ← Business type detection from URL content
+  /brief/screenshots.ts ← R2 upload + signed URL generation
+  /enterprise/domainMatch.ts  ← Email domain vs URL domain validation
+  /enterprise/otp.ts          ← OTP generation, hashing, verification
+  /enterprise/emailGuard.ts   ← MX record check before sending OTP
   /pdf/generator.ts     ← PDF generation
   /email/sender.ts      ← Resend email templates
   /razorpay/client.ts   ← Razorpay server-side helpers
-  /supabase/client.ts   ← Supabase client (server)
-  /supabase/browser.ts  ← Supabase client (browser)
-  /security/ssrf.ts     ← SSRF check function
+  /supabase/server.ts   ← Service-role client (bypasses RLS, server-only)
+  /supabase/browser.ts  ← Anon-key browser client (stub — not used until user auth)
+  /security/ssrf.ts     ← SSRF check function (async)
   /security/rateLimit.ts
+  /analytics/posthog.ts ← PostHog client wrapper (lazy init, console fallback)
 
 /components
   /ui/                  ← Shared UI components
   /scan/                ← Scan-specific components
   /report/              ← Report-specific components
+  /brief/               ← Brief-specific components
+  /enterprise/          ← Admin gate, OTP form, inquiry confirmation, domain-verify gate
 
 /constants
-  /pricing.ts           ← Tier definitions, prices
+  /pricing.ts           ← Tier definitions, prices, brief pricing, predefined cards, enterprise pricing
   /scan.ts              ← Check categories, status enums
+  /enterprise.ts        ← Single source of truth: known domain lists (global / indian), free email providers, institution TLDs
 
 /public
   /manifest.json
   /icons/               ← PWA icons (192, 512)
-  /sw.js                ← Service worker (generated by next-pwa)
+  /sw.js                ← Service worker (generated by Serwist)
 ```
 
 ---
@@ -123,6 +161,7 @@ Rules:
 - Priority: High = affects customers reaching the business. Medium = affects trust. Low = affects SEO/polish.
 - Effort: Low = owner or developer fixes in under 1 hour. Medium = under 1 day. High = needs planning.
 - Never use words: "utilize", "leverage", "ensure", "robust", "seamless".
+- If you cannot determine an appropriate finding for a check result, omit it entirely. Never fabricate findings.
 - Output: valid JSON only. No markdown. No preamble.
 `
 
@@ -136,7 +175,7 @@ Return JSON in this exact shape:
   "summary": string (one sentence),
   "issues": [
     {
-      "category": "contact|links|trust|technical",
+      "category": "contact|links|trust|content|visual|workflow|technical",
       "item": string,
       "status": "fail|warning",
       "detail": string,
@@ -310,9 +349,10 @@ Return only valid JSON, no preamble:
   "task_completable": boolean,
   "ux_findings": [
     {
-      "finding": string,
-      "user_experience": string,
-      "business_impact": string,
+      "finding": string (short label, under 80 characters),
+      "user_experience": string (one sentence — what the user experiences),
+      "business_impact": string (one sentence — what it costs the business),
+      "action": string (one sentence — the specific fix the owner should apply),
       "priority": "high|medium|low",
       "effort": "low|medium|high"
     }
@@ -370,7 +410,7 @@ export function isFreeRescanEarned(fixRate: number): boolean {
 }
 ```
 
-Free re-scan bypass: in `/api/scan/phase2/route.ts`, accept `free_rescan_token` (a signed JWT containing `scan_id` and `url_normalized`, issued by `/api/scan/check-previous` when `fix_rate >= 0.8`). Verify token server-side before bypassing payment check.
+Free re-scan bypass: in `/api/scan/phase2/trigger/route.ts`, accept `free_rescan_token` (a signed JWT containing `scan_id` and `url_normalized`, issued by `/api/scan/check-previous` when `fix_rate >= 0.8`). Verify token server-side before bypassing the payment check, then call `enqueuePhase2()` as normal.
 
 ---
 
@@ -440,7 +480,7 @@ export function detectPlaceholderText(html: string, pageUrl: string) {
 const THREE_YEARS_MS = 3 * 365 * 24 * 60 * 60 * 1000
 
 export async function checkImageAge(imgSrc: string) {
-  if (!isSafeUrl(imgSrc)) return null
+  if (!(await isSafeUrl(imgSrc))) return null
   try {
     const res = await fetch(imgSrc, { method: 'HEAD' })
     const lastModified = res.headers.get('last-modified')
@@ -515,34 +555,21 @@ export function analyseUIQuality(html: string, pageUrl: string) {
 
 ---
 
-```typescript
-// /lib/security/ssrf.ts
-import { isPrivateIP } from 'is-ip' // or manual check
+## SSRF Guard
 
-export function isSafeUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url)
-    if (!['http:', 'https:'].includes(parsed.protocol)) return false
-    const host = parsed.hostname
-    const blocked = [
-      /^127\./,
-      /^10\./,
-      /^192\.168\./,
-      /^172\.(1[6-9]|2\d|3[01])\./,
-      /^169\.254\./,
-      /^::1$/,
-      /^0\.0\.0\.0$/,
-      /localhost/i,
-      /\.local$/i,
-    ]
-    return !blocked.some(r => r.test(host))
-  } catch {
-    return false
-  }
+The full implementation lives in `/lib/security/ssrf.ts`. Defends against IPv4/IPv6 private ranges, cloud-metadata IPs, link-local, CGNAT, multicast, IPv4-mapped IPv6, local hostnames, and DNS rebinding (resolves the hostname and rejects if any A record is private).
+
+```typescript
+import { isSafeUrl } from '@/lib/security/ssrf'
+
+if (!(await isSafeUrl(userUrl))) {
+  return new Response('Blocked URL', { status: 400 })
 }
 ```
 
-Call `isSafeUrl(url)` before every outbound HTTP request in Phase 1 and Phase 2.
+**Critical:** `isSafeUrl` is **async** — always `await` it. The function performs a DNS lookup as part of the safety check; calling it without `await` returns a Promise that is truthy and silently bypasses the guard.
+
+Call before every outbound HTTP request in Phase 1 and Phase 2 — including HEAD requests for image age checks.
 
 ---
 
@@ -577,6 +604,337 @@ Deduplicate phone numbers before calling. One Twilio call per unique number.
 
 ---
 
+## Claude Brief Generation Prompt Pattern
+
+Third Claude call — completely separate from report and UX audit. Called once after payment verified.
+
+```typescript
+// /lib/claude/brief.ts
+
+const briefSystemPrompt = `
+You are translating a business owner's plain-language website improvement requests
+into a professional technical brief for their web developer.
+
+Your audience is TWO people simultaneously:
+1. The business owner — must feel heard and understood
+2. The web developer — must receive precise, actionable technical specifications
+
+Rules:
+- Preserve the owner's original words verbatim in "owner_words" field
+- Detect language automatically (Hindi, Gujarati, English, Hinglish, etc.)
+- Translate intent, not literally — "thoda sundar banana hai" means clean modern redesign, not decoration
+- Use industry-specific terminology matching the business type
+- Never invent features the owner did not ask for or imply
+- Each section: owner's request → what it means → exact technical spec
+- Effort estimates must be realistic for an average Indian freelance developer
+- Output: valid JSON only. No markdown. No preamble.
+`
+
+const briefUserPrompt = `
+Business URL: ${url}
+Business type detected: ${businessType}
+Page scan context: ${JSON.stringify(scanSummary)}
+
+Owner's input:
+- Original text: "${ownerText}"
+- Predefined cards selected: ${JSON.stringify(selectedCards)}
+- Screenshots provided: ${screenshotCount} images
+
+${screenshotCount > 0 ? 'Screenshots are provided as image blocks above.' : ''}
+
+Return JSON in this exact shape:
+{
+  "business_type": string,
+  "detected_language": string (ISO 639-1 code),
+  "owner_original_words": string,
+  "intent_summary": string (one sentence, plain English),
+  "sections": [
+    {
+      "title": string,
+      "priority": "high|medium|low",
+      "effort_days": string (e.g. "1–2 days", "3–5 days"),
+      "owner_words": string (exact quote from owner input),
+      "technical_brief": string (precise spec for developer),
+      "screenshot_ref": string | null
+    }
+  ],
+  "additional_recommendations": string[] (max 3, based on business type — only if highly relevant),
+  "not_in_scope": string[] (things owner did NOT ask for — helps developer avoid scope creep)
+}
+`
+```
+
+**Screenshot handling — pass as Claude image blocks:**
+```typescript
+const messages = [
+  {
+    role: 'user',
+    content: [
+      // Screenshots first (if any)
+      ...screenshots.map(s => ({
+        type: 'image',
+        source: { type: 'base64', media_type: s.mimeType, data: s.base64 }
+      })),
+      // Then the text prompt
+      { type: 'text', text: briefUserPrompt }
+    ]
+  }
+]
+```
+
+**Business type detection — separate lightweight Claude call:**
+```typescript
+// Run this before brief generation, after scan completes
+const detectPrompt = `
+Read this website content and return ONLY one of these business type keys:
+clinic | retail_clothing | restaurant | legal | education | ca_finance |
+real_estate | salon_beauty | gym_fitness | general
+
+Website URL: ${url}
+Page content (first 2000 chars): ${pageText.slice(0, 2000)}
+
+Return only the key. Nothing else.
+`
+```
+
+---
+
+## Enterprise & Institution Patterns
+
+### Size-Based Email Rules (summary for quick reference)
+
+```
+1–10 pages   → No email needed. Scan immediately.
+11–50 pages  → Generic email OK. Scan runs.
+               Phase 2 checks email identity. Flag in report if mismatch.
+               Never block the scan.
+50+ pages    → Domain email mandatory. Generic blocked with friendly message.
+               OTP required. Scan only after OTP verified.
+Enterprise   → Domain email + OTP + manual approval always.
+Institution  → Domain email + OTP. Special report path.
+```
+
+### Email Identity Check (Standard tier only — 11–50 pages)
+
+```typescript
+// /lib/scan/trust.ts
+
+const FREE_PROVIDERS = [
+  'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
+  'rediffmail.com', 'ymail.com', 'icloud.com',
+  'protonmail.com', 'zoho.com', 'me.com',
+]
+
+export function checkEmailIdentity(
+  ownerEmail: string | null,
+  siteDomain: string,
+  emailsFoundOnSite: string[]
+): EmailIdentityFinding | null {
+
+  const siteHasDomainEmail = emailsFoundOnSite.some(e => {
+    const d = e.split('@')[1]?.toLowerCase()
+    return d && !FREE_PROVIDERS.includes(d) &&
+      (d === siteDomain || d.endsWith('.' + siteDomain))
+  })
+
+  const ownerUsedFreeEmail = ownerEmail
+    ? FREE_PROVIDERS.includes(ownerEmail.split('@')[1]?.toLowerCase() ?? '')
+    : true
+
+  // Mismatch: site shows domain email but owner used Gmail
+  if (siteHasDomainEmail && ownerUsedFreeEmail) {
+    return {
+      check: 'email_identity_mismatch',
+      category: 'trust',
+      priority: 'medium',
+      effort: 'low',
+      detail: `Your website shows a domain email but you are using a personal
+               email address. Customers who notice this inconsistency may
+               question whether they are dealing with the real business.`,
+      action: `Use your domain email consistently — for enquiries, WhatsApp
+               Business, and Google Business Profile.`
+    }
+  }
+
+  // Site has no domain email at all
+  if (!siteHasDomainEmail) {
+    return {
+      check: 'no_domain_email',
+      category: 'trust',
+      priority: 'medium',
+      effort: 'low',
+      detail: `No professional domain email found on your website.`,
+      action: `Set up info@${siteDomain} — costs around ₹500 per year
+               and immediately signals a serious, established business.`
+    }
+  }
+
+  return null
+}
+```
+
+**Tone rule:** Email findings are always written as a business observation — never accusatory. *"Customers may wonder..."* not *"You are using the wrong email."*
+
+---
+
+### Domain-Match Verification (Complex + Enterprise + Institution)
+
+```typescript
+// /lib/enterprise/domainMatch.ts
+
+const FREE_PROVIDERS = [
+  'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
+  'rediffmail.com', 'ymail.com', 'icloud.com',
+  'protonmail.com', 'zoho.com', 'me.com',
+]
+
+export function isEmailDomainValid(email: string, siteUrl: string): {
+  valid: boolean
+  reason?: string
+} {
+  const emailDomain = email.split('@')[1]?.toLowerCase()
+  if (!emailDomain) return { valid: false, reason: 'invalid_email' }
+
+  if (FREE_PROVIDERS.includes(emailDomain))
+    return { valid: false, reason: 'free_provider' }
+
+  const siteDomain = new URL(siteUrl).hostname
+    .replace(/^www\./, '').toLowerCase()
+
+  const matches = emailDomain === siteDomain ||
+    emailDomain.endsWith('.' + siteDomain)
+
+  return matches
+    ? { valid: true }
+    : { valid: false, reason: 'domain_mismatch' }
+}
+```
+
+### Email Guard — MX Check Before Sending OTP
+
+```typescript
+// /lib/enterprise/emailGuard.ts
+import dns from 'dns/promises'
+
+export async function hasMxRecord(emailDomain: string): Promise<boolean> {
+  try {
+    const records = await dns.resolveMx(emailDomain)
+    return records.length > 0
+  } catch {
+    return false
+  }
+}
+```
+
+**Call order in `verify-email/route.ts`:**
+```typescript
+// 1. Validate email shape (Zod)
+// 2. isEmailDomainValid() — free provider + domain match
+// 3. hasMxRecord(emailDomain) — does mail server exist?
+//    → if false: return 422, DO NOT insert DB row
+// 4. Check for existing pending inquiry (idempotency)
+//    → if exists and < 60s since last send: return 429
+//    → if exists and > 60s: resend to existing row
+// 5. Insert DB row (or update existing)
+// 6. sendOtpEmail() → check result.success
+//    → if false: roll back DB row, return 502
+// 7. Return 200
+```
+
+### sendOtpEmail — Discriminated Return
+
+```typescript
+// /lib/email/sender.ts
+export async function sendOtpEmail(
+  to: string,
+  otp: string
+): Promise<{ success: true; messageId: string }
+         | { success: false; reason: string }> {
+  try {
+    const result = await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL!,
+      to,
+      subject: 'Your fixmysite.in verification code',
+      text: `Your verification code is: ${otp}\n\nValid for 15 minutes.`,
+    })
+    if (result.error) {
+      return { success: false, reason: result.error.message }
+    }
+    return { success: true, messageId: result.data!.id }
+  } catch (err) {
+    return { success: false, reason: String(err) }
+  }
+}
+```
+
+### UI Messages — OTP Guard States (exact copy)
+
+**MX check fails:**
+> *"We couldn't find a mail server for [domain]. Double-check your email address or [contact us →] at hello@fixmysite.in."*
+
+**Email send failed (Resend error):**
+> *"We could not send the verification code. Please try again or [contact us →] at hello@fixmysite.in."*
+
+**Retry too soon:**
+> *"Please wait [X] seconds before requesting another code."*
+
+**Wrong OTP entered:**
+> *"Incorrect code. [X] attempts remaining."*
+
+**OTP expired:**
+> *"This code has expired. [Request a new one →]"*
+
+**OTP locked (3 failed attempts):**
+> *"Verification locked after too many attempts. [Contact us →] at hello@fixmysite.in for manual verification."*
+
+**Rule:** Every error state includes a next action. No state leaves the user stranded.
+
+---
+
+```typescript
+// /lib/enterprise/otp.ts
+import bcrypt from 'bcryptjs'
+
+export function generateOtp(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString()
+}
+
+export async function hashOtp(otp: string): Promise<string> {
+  return bcrypt.hash(otp, 10)
+}
+
+export async function verifyOtp(plain: string, hash: string): Promise<boolean> {
+  return bcrypt.compare(plain, hash)
+}
+
+// Server-side enforcement:
+// - OTP valid: otp_sent_at > now() - interval '15 minutes'
+// - Max attempts: otp_attempts < 3
+// - On 3rd failure: set status = 'locked', no further attempts allowed
+```
+
+### UI Messages (exact copy — never deviate)
+
+**Free provider rejected:**
+> *"Please use your work email at [domain]. Personal email addresses like Gmail cannot be used to verify website ownership."*
+
+**Domain mismatch:**
+> *"The email you entered doesn't match [domain]. Use an email like yourname@[domain] to verify you manage this site. No work email? [Contact us →] for manual verification."*
+
+**OTP sent:**
+> *"We've sent a 6-digit code to [email]. Check your inbox and enter it below. Valid for 15 minutes."*
+
+**OTP locked:**
+> *"This verification has been locked after too many attempts. Please [start again →] or [contact us →] for manual verification."*
+
+**Inquiry confirmed:**
+> *"Thank you. We've received your request and will be in touch within 24 hours with a quote and next steps."*
+
+**Fun-seeker exit ("No, just curious"):**
+> *"No problem. fixmysite.in is built for website owners and managers. Paste a site you manage to get started."*
+
+---
+
 ## PDF Generation Pattern
 
 Use `@react-pdf/renderer`. Generate server-side in `/api/report/pdf/route.ts`.
@@ -606,7 +964,7 @@ export async function POST(req: Request) {
 
 ## Email Templates (Resend)
 
-Four templates. All plain, professional, short.
+Eight templates. All plain, professional, short.
 
 ### 1. Full report ready
 ```
@@ -662,6 +1020,68 @@ We'll scan again next month.
 — fixmysite.in
 ```
 
+### 5. Developer brief ready (to owner)
+```
+Subject: Your developer brief is ready — fixmysite.in
+
+Hi,
+
+Your developer brief for [url] is ready.
+
+It includes [X] improvement sections with full technical specifications.
+Your original words are preserved exactly as you wrote them.
+
+[Download Brief PDF] ← button
+
+Share this with your developer — they'll know exactly what to build.
+
+— fixmysite.in
+```
+
+### 6. Developer brief delivery (to developer)
+```
+Subject: Website improvement brief for [url] — from your client
+
+Hi,
+
+Your client has prepared a website improvement brief for [url] via fixmysite.in.
+
+[X] improvement sections. Full technical specifications attached.
+
+The brief includes the client's original words alongside developer-ready specifications.
+
+[Download Brief PDF] ← button
+
+— fixmysite.in
+```
+
+### 7. Enterprise inquiry received (to you — admin)
+```
+Subject: New enterprise inquiry — [url_class] — [url]
+
+URL: [url]
+Classification: [global_enterprise | indian_enterprise | institution]
+Claimed email: [email] ✓ OTP verified
+Submitted: [timestamp]
+
+[View in admin panel →]
+
+Set a price and approve to proceed.
+```
+
+### 8. Enterprise inquiry confirmed (to claimant)
+```
+Subject: We've received your request — fixmysite.in
+
+Hi,
+
+Thank you for reaching out about [url].
+
+We've received your verified request and will be in touch within 24 hours with a custom quote and next steps.
+
+— fixmysite.in
+```
+
 ---
 
 ## Environment Variables
@@ -696,6 +1116,18 @@ NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
 # Claude
 ANTHROPIC_API_KEY=
 
+# Cloudflare R2 (screenshots + brief PDFs)
+CLOUDFLARE_R2_ACCESS_KEY_ID=
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=
+CLOUDFLARE_R2_BUCKET_NAME=fixmysite-briefs
+CLOUDFLARE_R2_ENDPOINT=
+
+# Upstash QStash (background queue for Phase 2 deep scan)
+QSTASH_TOKEN=
+QSTASH_CURRENT_SIGNING_KEY=
+QSTASH_NEXT_SIGNING_KEY=
+UPSTASH_QSTASH_URL=https://qstash.upstash.io
+
 # App
 NEXT_PUBLIC_APP_URL=https://fixmysite.in
 CRON_SECRET=
@@ -724,24 +1156,67 @@ export function getTier(pageCount: number) {
   if (pageCount <= 200) return SCAN_TIERS.large
   return null // enterprise — contact us
 }
+
+export const BRIEF_PRICING = {
+  text_only:        { price: 99,  label: 'Developer Brief' },
+  with_screenshots: { price: 199, label: 'Developer Brief + Screenshots' },
+  bundle:           { price: 199, label: 'Scan + Brief Bundle' },
+} as const
+
+export const PREDEFINED_CARDS = [
+  { key: 'looks_old',       label: '🎨 My website looks old' },
+  { key: 'mobile_bad',      label: '📱 Doesn\'t look good on mobile' },
+  { key: 'seo_poor',        label: '🔍 People can\'t find me on Google' },
+  { key: 'contact_hard',    label: '📞 Customers can\'t contact me easily' },
+  { key: 'products_hard',   label: '🛒 Hard to show my products/services' },
+  { key: 'photos_bad',      label: '📸 My photos look bad' },
+  { key: 'slow',            label: '⚡ Website feels slow' },
+  { key: 'add_feature',     label: '📝 I want to add something new' },
+  { key: 'booking_needed',  label: '📅 I want online booking' },
+  { key: 'whatsapp_needed', label: '💬 I want WhatsApp integration' },
+  { key: 'payment_needed',  label: '💳 I want to accept payments online' },
+  { key: 'language_needed', label: '🌐 I want my website in another language' },
+] as const
 ```
 
 ---
 
-## PWA Setup
+## PWA Setup (Serwist — replaces legacy next-pwa)
 
-```javascript
-// next.config.js
-const withPWA = require('next-pwa')({
-  dest: 'public',
-  register: true,
-  skipWaiting: true,
+```typescript
+// next.config.ts
+import withSerwistInit from '@serwist/next'
+
+const withSerwist = withSerwistInit({
+  swSrc: 'app/sw.ts',
+  swDest: 'public/sw.js',
   disable: process.env.NODE_ENV === 'development',
-  runtimeCaching: [] // no scan result caching
 })
 
-module.exports = withPWA({ /* your config */ })
+export default withSerwist({ /* NextConfig options */ })
 ```
+
+```typescript
+// app/sw.ts — service worker source
+import { defaultCache } from '@serwist/next/worker'
+import { Serwist } from 'serwist'
+
+declare const self: ServiceWorkerGlobalScope & {
+  __SW_MANIFEST: (string | { url: string; revision: string | null })[]
+}
+
+const serwist = new Serwist({
+  precacheEntries: self.__SW_MANIFEST,
+  skipWaiting: true,
+  clientsClaim: true,
+  navigationPreload: true,
+  runtimeCaching: [], // no scan result caching — fixmysite rule
+})
+
+serwist.addEventListeners()
+```
+
+**Why Serwist over next-pwa:** next-pwa is unmaintained and incompatible with Next.js 15+. Serwist is the maintained successor (built on Workbox), works with Next 16 + Turbopack, and is what the Next.js team currently recommends for App Router PWAs.
 
 ```json
 // public/manifest.json
@@ -790,6 +1265,53 @@ module.exports = withPWA({ /* your config */ })
 24. Workflow HTML checks run on ALL crawled pages — they are fast, no AI cost
 25. `userImpact` field is mandatory on every workflow finding — written from user perspective always
 26. Two separate Claude calls: (1) full report generation, (2) UX audit per page — never merge into one prompt
+27. CLAUDE.md always takes precedence over SPEC.md on conflicts
+28. Brief generation is a third separate Claude call — never merge with report or UX audit
+29. Screenshots: validate jpg/png/webp only, max 5MB/file, max 10 files before uploading to R2
+30. Business type detection: always Claude-detected from URL content — never hardcoded or assumed
+31. Brief scan_id must be verified server-side as belonging to a paid scan before generating
+32. classifyUrl() runs BEFORE Phase 1 — never skip it
+33. Simple sites (1–10 pages): no email required, no verification, scan immediately
+34. Standard sites (11–50 pages): generic email accepted, but Phase 2 runs email identity check — never block the scan
+35. Complex sites (50+ pages): domain email mandatory, generic blocked with friendly message
+36. Email identity check only runs for standard tier (11–50 pages) — not simple, not complex
+37. Enterprise / institution paths never auto-scan — always require OTP verification first
+38. OTP stored as bcrypt hash — never plain text in DB
+39. OTP valid 15 minutes, max 3 attempts, then locked — enforced server-side. Lockout self-heals after 60 seconds — the rule-49 idempotency check resets `otp_attempts` to 0 and issues a fresh OTP. No admin intervention needed for standard lockouts.
+40. Free email providers (gmail, yahoo, hotmail etc.) blocked for complex/enterprise/institution — never for simple or standard
+41. Email domain must match or be subdomain of site domain for complex/enterprise/institution
+42. No scan row created for enterprise/institution until inquiry is manually approved
+43. Enterprise pricing set manually per inquiry — never auto-calculated
+44. "Fun-seeker" exit (No, just curious) creates zero DB rows, costs zero rupees
+45. Report finding `email_identity_mismatch` — written as a business observation, never accusatory
+46. Before sending OTP — always run `hasMxRecord()` first. If MX check fails → return 422, do NOT insert DB row
+47. `sendOtpEmail` must return a discriminated result `{ success: true } | { success: false; reason: string }` — never throw. Caller always checks success before proceeding
+48. If OTP email send fails after DB row is inserted → roll back the DB row immediately. No orphaned rows ever
+49. `verify-email` route is idempotent — check for existing pending inquiry before inserting. Resend to existing row if > 60 seconds since last send. Never create duplicate rows for same email + URL
+50. Every OTP error state must show a next action. Never leave user stranded without a path forward. Always include manual escape: "Contact us at hello@fixmysite.in"
+51. Intake is always optional — never block scan or report generation if owner skips it
+52. Intake free text accepts any language — Claude detects language, never reject or validate language
+53. Intake context must be prepended to ALL Claude prompts — report generation, UX audit, brief, return message
+54. Never store intake in phase1_result or phase2_result — owner_intake table only
+55. Post-report intake can be submitted multiple times — always upsert by scan_id, never duplicate rows
+56. Budget signal from intake overrides default solution map ordering — "cheap fixes only" = Low effort actions first; "serious investment" = overhaul recommendation unlocked
+57. If owner said "lost contact with developer" in intake — solution map uses DIY language, not "ask your developer"
+58. Font and colour analysis runs as part of Phase 2 — CSS parsing via extractor, suggestions from Claude
+59. Website age calculation uses 4 signals combined: copyright year + meta generator + image Last-Modified average + SSL issue date
+60. Industry benchmarks use fixmysite.in's own scan history only — never external data, never competitor names
+61. Follow-up questions (Layer 2) max 5 — only show questions triggered by Phase 1 findings
+62. If owner mentioned specific concern in text box and we found it — reference their exact words
+63. Recommendation (surgical/partial/overhaul) uses combined signal: health_score + site_age_years + owner budget signal
+64. Font suggestions matched to business type — never generic "use a nice font"
+65. Colour palette suggestion: always 3 colours (primary, secondary, accent) — never just "improve colours"
+66. Overhaul recommendation only when site_age >= 5 AND health_score < 60 — never recommend overhaul for healthy old sites
+67. Blueprint Engine is a fourth Claude call — completely separate from report, UX audit, and brief
+68. Blueprint questions are cascading — never show all questions at once, branch based on answers
+69. Blueprint always explains why the recommended type is right AND why alternatives are wrong
+70. Blueprint technology suggestions must use Indian context — Razorpay not Stripe, Hostinger not AWS, Indian developer rates
+71. Blueprint payment gate: same pattern as scan — create-order → verify → unlock full blueprint
+72. Never recommend "custom build" for businesses with budget under ₹50,000 — redirect to feature or platform
+73. Blueprint PDF uses same @react-pdf/renderer pattern as report PDF — server-side only
 
 ---
 
@@ -813,6 +1335,37 @@ module.exports = withPWA({ /* your config */ })
 | Writing findings from owner's perspective | Always user's perspective: "user tries to... and cannot..." |
 | Running Claude UX audit on all pages | Max 5 pages — homepage + 4 most linked internal pages |
 | Flagging CTA hrefs in workflow.ts | Only collect them — pass to link checker for HTTP validation |
+| Passing raw screenshot binary to Claude | Always base64 encode, pass as image block |
+| Making brief screenshots publicly accessible | R2 private bucket only — signed URLs, 1hr expiry |
+| Generating brief without verifying scan payment | brief.scan_id must belong to paid scan — verify server-side |
+| Hardcoding business type | Always Claude-detected from URL content |
+| Merging brief prompt with report prompt | Three separate Claude calls: report / UX audit / brief |
+| Accepting gmail for enterprise claim | Free providers blocked for complex/enterprise/institution — never for simple/standard |
+| Running Phase 1 before classifyUrl | classifyUrl always runs first — no exceptions |
+| Blocking standard site for using Gmail | Standard sites (11–50 pages) are never blocked — flag in report instead |
+| Running email identity check on simple sites | Only runs for standard tier (11–50 pages) |
+| Running email identity check on complex sites | Complex sites are blocked before scan if no domain email — check is irrelevant |
+| Storing OTP as plain text | Always bcrypt hash before storing |
+| Auto-approving enterprise inquiry | Manual approval only — you set the price, you approve |
+| Creating scan row before enterprise approval | No scan row until manually approved and paid |
+| Allowing subdomain mismatch | mail.tatamotors.com is valid for tatamotors.com — check correctly |
+| Writing email finding accusatorially | Always frame as business observation: "customers may wonder..." not "you are wrong" |
+| Skipping MX check before OTP send | Always run hasMxRecord() first — catches domains with no mail server |
+| Letting sendOtpEmail throw | Always return discriminated result — never throw, caller checks success |
+| Leaving orphaned DB row on email failure | Roll back inquiry row immediately if sendOtpEmail returns success:false |
+| Creating duplicate inquiry rows on retry | Check for existing pending row first — resend to it if > 60s |
+| Showing error with no next action | Every error state must include a path forward — retry or contact us |
+
+---
+
+## v1.1 Roadmap
+
+Items deferred from v1 — not blocking ship, worth picking up after first paid scans land.
+
+- **Shared page cache in phase2 orchestrator.** Today `content.ts`, `ui.ts`, and `workflow.ts` each fetch the same crawl pages independently — up to ~40 redundant GETs per scan against the customer's own site. Fix: fetch each crawled URL once in the phase2 orchestrator and fan the HTML out to all three modules. Same change should let `images.ts` accumulate image URLs across the wider crawl instead of homepage-only.
+- **CTA cross-reference.** `workflow.ts` collects `cta_to_validate` hrefs but never surfaces them — link checker has already finished by the time workflow runs. Wire post-hoc cross-reference: workflow CTAs that link checker confirmed broken get a dedicated workflow finding ("primary action button leads to a 404").
+- **Per-URL link frequency for content scan priority.** Extractor dedupes internal links by pathname, losing how many times each URL appears on the homepage. Page selection in `content.ts` falls back to first-appearance order. Track frequency in the extractor and rank candidate pages by it.
+- **UX audit tier-gating.** UX audit costs ~₹4-5 per scan (5 Sonnet calls). On a ₹49 Small-tier scan that's ~10% margin gone; on Medium (₹149) it's 3%. Two options to evaluate after the first 50 paid scans show real cost patterns: (A) gate UX audit to Medium + Large tiers only, or (B) cap Small tier at 3 pages and Medium+ at 5. Decision should be data-driven — keep current 5-page default until we see real conversion + finding-quality numbers.
 
 ---
 

@@ -1,0 +1,192 @@
+import Image from 'next/image'
+import Link from 'next/link'
+import { ScanForm } from '@/components/scan/ScanForm'
+
+const CHECKS = [
+  {
+    title: 'Contact that works',
+    body: 'Bugbite verifies every phone number, email, and WhatsApp link actually reaches you.',
+  },
+  {
+    title: 'Every link, every page',
+    body: 'Bugbite walks your whole site and flags links that go nowhere.',
+  },
+  {
+    title: 'SSL and security',
+    body: 'Padlock real? Certificate about to expire? Bugbite catches both.',
+  },
+  {
+    title: 'Mobile readability',
+    body: 'Bugbite reads your site on a phone the way your customers do — tap targets, font sizes, layout.',
+  },
+  {
+    title: 'Placeholder content',
+    body: 'Bugbite spots lorem ipsum, "coming soon" pages, and leftover sample text.',
+  },
+  {
+    title: 'Trust signals',
+    body: 'Bugbite checks reviews, testimonials, and that your address is the same on every page.',
+  },
+]
+
+export default function Home() {
+  return (
+    <div className="flex flex-1 flex-col">
+      <header className="border-b border-zinc-100 bg-white">
+        <div className="mx-auto flex w-full max-w-5xl items-center gap-2 px-5 py-4 sm:px-8">
+          <Image
+            src="/brand/logo-mark.png"
+            alt=""
+            width={397}
+            height={294}
+            priority
+            className="h-7 w-auto mix-blend-multiply"
+          />
+          <span className="text-lg font-semibold text-brand">fixmysite.in</span>
+        </div>
+      </header>
+
+      <main className="flex-1">
+        {/* Hero */}
+        <section className="bg-brand-surface">
+          <div className="mx-auto w-full max-w-3xl px-5 py-10 sm:px-8 sm:py-16">
+            {/* Hero logo composite — cat + FIXMYSITE.IN + tagline.
+                Sized restrained so the H1 leads the page; logo
+                supports rather than dominates. mix-blend-multiply
+                merges the white file background with the mint
+                surface — without it you get a hard white rectangle. */}
+            <div className="flex justify-center">
+              <Image
+                src="/brand/logo-light.png"
+                alt="fixmysite.in — your website, finally well-behaved."
+                width={1414}
+                height={560}
+                priority
+                sizes="(max-width: 640px) 70vw, 320px"
+                className="h-auto w-full max-w-[240px] mix-blend-multiply sm:max-w-[320px]"
+              />
+            </div>
+
+            <h1 className="mt-6 text-3xl font-semibold leading-tight tracking-tight text-zinc-900 sm:text-4xl md:text-5xl">
+              Bugbite finds what&apos;s broken on your website — before your customers do.
+            </h1>
+            <p className="mt-5 text-lg leading-relaxed text-zinc-700 sm:text-xl">
+              Phone numbers that don&apos;t ring. Links that go nowhere. Forms
+              that lose enquiries. Bugbite reads your site the way your
+              customer does, then tells you exactly what to fix — in plain
+              language, no developer-speak.
+            </p>
+
+            <div className="mt-8">
+              <ScanForm />
+            </div>
+
+            <ul className="mt-5 flex flex-col gap-2 text-sm text-zinc-700 sm:flex-row sm:gap-6">
+              <li>Free 30-second check</li>
+              <li>No signup or login</li>
+              <li>Built for Indian small businesses</li>
+            </ul>
+          </div>
+        </section>
+
+        {/* What we check */}
+        <section className="bg-white">
+          <div className="mx-auto w-full max-w-5xl px-5 py-16 sm:px-8 sm:py-20">
+            <h2 className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">
+              Bugbite checks what your customers actually experience
+            </h2>
+            <p className="mt-3 max-w-2xl text-base text-zinc-600">
+              No technical scores. Bugbite hunts for the real problems that
+              lose you calls, messages, and walk-ins.
+            </p>
+
+            <ul className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {CHECKS.map((check) => (
+                <li
+                  key={check.title}
+                  className="rounded-xl border border-zinc-100 bg-zinc-50 p-5"
+                >
+                  <h3 className="text-base font-semibold text-zinc-900">
+                    {check.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-zinc-600">
+                    {check.body}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        {/* How it works */}
+        <section className="bg-brand-surface">
+          <div className="mx-auto w-full max-w-3xl px-5 py-16 sm:px-8 sm:py-20">
+            <h2 className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">
+              How it works
+            </h2>
+            <ol className="mt-8 space-y-6">
+              <li className="flex gap-4">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
+                  1
+                </span>
+                <div>
+                  <h3 className="text-base font-semibold text-zinc-900">
+                    Paste your website URL
+                  </h3>
+                  <p className="mt-1 text-sm text-zinc-700">
+                    Bugbite shows the biggest issues right away — free, in 30 seconds.
+                  </p>
+                </div>
+              </li>
+              <li className="flex gap-4">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
+                  2
+                </span>
+                <div>
+                  <h3 className="text-base font-semibold text-zinc-900">
+                    Get the full report for ₹49
+                  </h3>
+                  <p className="mt-1 text-sm text-zinc-700">
+                    Bugbite hands you the full findings with a step-by-step
+                    fix list, ordered by what matters most.
+                  </p>
+                </div>
+              </li>
+              <li className="flex gap-4">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
+                  3
+                </span>
+                <div>
+                  <h3 className="text-base font-semibold text-zinc-900">
+                    Fix it yourself or send it to your developer
+                  </h3>
+                  <p className="mt-1 text-sm text-zinc-700">
+                    Plain-language actions from Bugbite. PDF report you can
+                    email to whoever builds your site.
+                  </p>
+                </div>
+              </li>
+            </ol>
+          </div>
+        </section>
+      </main>
+
+      <footer className="border-t border-zinc-100 bg-white">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-5 py-6 text-sm text-zinc-500 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+          <span>© {new Date().getFullYear()} fixmysite.in · Made for Indian businesses</span>
+          <nav className="flex gap-5">
+            <Link href="/about-us" className="hover:text-zinc-900">
+              About
+            </Link>
+            <Link href="/privacy" className="hover:text-zinc-900">
+              Privacy
+            </Link>
+            <Link href="/terms" className="hover:text-zinc-900">
+              Terms
+            </Link>
+          </nav>
+        </div>
+      </footer>
+    </div>
+  )
+}
