@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { captureEvent } from '@/lib/analytics/posthog'
 import type { Phase1Result } from '@/lib/scan/phase1'
 import type { Issue } from '@/lib/scan/phase2'
+import { formatIssueTitle } from '@/lib/report/formatTitle'
 import type { ReportData, ReportScan } from '@/lib/report/types'
 
 export type { ReportData, ReportScan }
@@ -208,7 +209,10 @@ export function ReportClient({ initial }: { initial: ReportData }) {
       <ScanHeader scan={data.scan} />
       <Phase1Findings phase1={data.scan.phase1_result} />
       <StatusBody scan={data.scan} issues={data.issues} fallback={fallback} />
-      <ActionFooter enabled={data.scan.status === 'complete'} />
+      <ActionFooter
+        enabled={data.scan.status === 'complete'}
+        scanId={data.scan.id}
+      />
       <p className="mt-10 text-xs text-zinc-400">Reference: {data.scan.id}</p>
     </>
   )
@@ -562,14 +566,23 @@ function IssueSection({
 }
 
 function IssueCard({ issue }: { issue: Issue }) {
+  // Humanize the stored issue.item key (e.g. `form_no_destination:url`)
+  // into a customer-facing title + optional path subtitle. The raw key
+  // never reaches the UI.
+  const { title, subtitle } = formatIssueTitle(issue.item)
   return (
     <article className="rounded-lg border border-zinc-100 bg-zinc-50/50 p-4">
       <div className="flex items-start gap-3">
         <StatusDot status={issue.status} />
         <div className="flex-1">
           <p className="text-sm font-medium text-zinc-900 break-words">
-            {issue.item}
+            {title}
           </p>
+          {subtitle && (
+            <p className="mt-0.5 text-xs text-zinc-500 break-words">
+              {subtitle}
+            </p>
+          )}
           <p className="mt-1 text-sm leading-relaxed text-zinc-700">
             {issue.detail}
           </p>
@@ -698,7 +711,9 @@ function SolutionMap({ issues }: { issues: Issue[] }) {
         </span>
       </summary>
       <ol className="space-y-4 border-t border-zinc-100 px-6 py-4">
-        {actionable.map((issue, idx) => (
+        {actionable.map((issue, idx) => {
+          const { title, subtitle } = formatIssueTitle(issue.item)
+          return (
           <li
             key={`solution-${issue.item}-${idx}`}
             className="flex gap-4"
@@ -708,8 +723,13 @@ function SolutionMap({ issues }: { issues: Issue[] }) {
             </span>
             <div className="flex-1">
               <p className="text-sm font-medium text-zinc-900 break-words">
-                {issue.item}
+                {title}
               </p>
+              {subtitle && (
+                <p className="mt-0.5 text-xs text-zinc-500 break-words">
+                  {subtitle}
+                </p>
+              )}
               <p className="mt-1 text-sm leading-relaxed text-zinc-700">
                 {issue.action || issue.detail}
               </p>
@@ -719,7 +739,8 @@ function SolutionMap({ issues }: { issues: Issue[] }) {
               </div>
             </div>
           </li>
-        ))}
+          )
+        })}
       </ol>
     </details>
   )
@@ -801,7 +822,10 @@ function SendToDeveloper({ scanId }: { scanId: string }) {
   const isSending = state.phase === 'sending'
 
   return (
-    <section className="rounded-xl border border-zinc-200 bg-white p-6">
+    <section
+      id="send-to-developer-form"
+      className="scroll-mt-6 rounded-xl border border-zinc-200 bg-white p-6"
+    >
       <h2 className="text-lg font-semibold text-zinc-900">
         Send what Bugbite found to your developer
       </h2>
@@ -1001,20 +1025,80 @@ function Phase1Findings({ phase1 }: { phase1: Phase1Result | null }) {
 
 // ─── Action footer ───────────────────────────────────────────────────────
 
-function ActionFooter({ enabled }: { enabled: boolean }) {
+type PdfDownloadState =
+  | { phase: 'idle' }
+  | { phase: 'generating' }
+  | { phase: 'error' }
+
+function ActionFooter({
+  enabled,
+  scanId,
+}: {
+  enabled: boolean
+  scanId: string
+}) {
+  const [pdf, setPdf] = useState<PdfDownloadState>({ phase: 'idle' })
+
+  async function handleDownloadPdf() {
+    if (pdf.phase === 'generating') return
+    setPdf({ phase: 'generating' })
+    try {
+      const res = await fetch('/api/report/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scan_id: scanId }),
+      })
+      if (!res.ok) throw new Error(`PDF endpoint returned ${res.status}`)
+
+      const blob = await res.blob()
+      // Try to recover the server-suggested filename from the
+      // Content-Disposition header. Falls back to a scan-id name.
+      const cd = res.headers.get('Content-Disposition') ?? ''
+      const match = cd.match(/filename="?([^";]+)"?/i)
+      const filename = match?.[1] ?? `fixmysite-report-${scanId}.pdf`
+
+      // Trigger browser download from the in-memory blob — no extra
+      // round trip, no cross-origin worry, plays nice with mobile
+      // browsers that block window.open() during async callbacks.
+      const objectUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = objectUrl
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(objectUrl)
+
+      setPdf({ phase: 'idle' })
+    } catch (err) {
+      console.error('[pdf-download] failed', err)
+      setPdf({ phase: 'error' })
+    }
+  }
+
+  function handleScrollToDevForm() {
+    const el = document.getElementById('send-to-developer-form')
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const downloading = pdf.phase === 'generating'
+
   return (
     <section className="mt-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <button
           type="button"
-          disabled={!enabled}
-          aria-disabled={!enabled}
+          onClick={handleDownloadPdf}
+          disabled={!enabled || downloading}
+          aria-disabled={!enabled || downloading}
+          aria-busy={downloading}
           className="inline-flex items-center justify-center rounded-lg bg-brand px-5 py-3 text-base font-medium text-white transition-colors hover:bg-brand-accent disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Download PDF report
+          {downloading ? 'Generating PDF…' : 'Download PDF report'}
         </button>
         <button
           type="button"
+          onClick={handleScrollToDevForm}
           disabled={!enabled}
           aria-disabled={!enabled}
           className="inline-flex items-center justify-center rounded-lg border border-zinc-300 bg-white px-5 py-3 text-base font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
@@ -1025,6 +1109,18 @@ function ActionFooter({ enabled }: { enabled: boolean }) {
       {!enabled && (
         <p className="mt-3 text-xs text-zinc-500">
           Bugbite is still working — both buttons activate when the report is ready.
+        </p>
+      )}
+      {pdf.phase === 'error' && (
+        <p className="mt-3 text-sm text-red-700" role="alert">
+          Could not generate PDF. Try again or email{' '}
+          <a
+            href="mailto:hello@fixmysite.in"
+            className="underline underline-offset-2"
+          >
+            hello@fixmysite.in
+          </a>
+          .
         </p>
       )}
     </section>

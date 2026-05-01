@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+import { formatIssueTitle } from '@/lib/report/formatTitle'
 
 let _resend: Resend | null = null
 
@@ -304,7 +305,13 @@ export async function sendReportToDeveloper(args: {
     lines.push('')
   } else {
     args.solutionMap.forEach((issue, i) => {
-      lines.push(`${i + 1}. ${issue.item}`)
+      // Stored issue.item is a stable identifier
+      // (e.g. `form_no_destination:https://...`). Humanize before the
+      // developer reads it — same helper the report UI uses, so the
+      // email and the on-screen report are always in sync.
+      const { title, subtitle } = formatIssueTitle(issue.item)
+      lines.push(`${i + 1}. ${title}`)
+      if (subtitle) lines.push(`   ${subtitle}`)
       lines.push(`   ${issue.action || issue.detail}`)
       lines.push(`   Priority: ${issue.priority} · Effort: ${issue.effort}`)
       lines.push('')
