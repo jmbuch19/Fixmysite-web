@@ -51,3 +51,50 @@ body {
     animation: none;
   }
 }
+
+/* `animate-cat-walk` — Bugbite paces back and forth across the
+   scanning card. 12s loop divided into:
+     0–4%    standing at left edge, facing right (brief settle)
+     4–48%   walking right
+     48–52%  arrived at right edge, turning around
+     52–96%  walking left
+     96–100% turning around back to face right (end of cycle)
+   The scaleX flip mirrors the cat horizontally so it actually faces
+   the direction of motion — the polished detail. Animates `left`
+   instead of translateX because `calc(100% - …)` resolves against the
+   containing block, which gives us a natural "walks to the edge of
+   the card" regardless of card width. */
+@keyframes cat-walker {
+  0%, 4%   { left: 0;                  transform: scaleX(1);  }
+  48%      { left: calc(100% - 36px);  transform: scaleX(1);  }
+  50%      { left: calc(100% - 36px);  transform: scaleX(-1); }
+  52%      { left: calc(100% - 36px);  transform: scaleX(-1); }
+  96%      { left: 0;                  transform: scaleX(-1); }
+  98%      { left: 0;                  transform: scaleX(-1); }
+  100%     { left: 0;                  transform: scaleX(1);  }
+}
+
+/* Subtle vertical bob — runs independently of the walk so it stays
+   smooth during turn-arounds. ~3 bobs per second reads as a steady
+   walking gait. Sits on a separate inner element so the
+   transform: translateY here doesn't fight the walker's scaleX
+   transform on the parent. */
+@keyframes cat-walk-bounce {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-2px); }
+}
+
+.animate-cat-walk {
+  animation: cat-walker 12s ease-in-out infinite;
+}
+
+.animate-cat-walk-bounce {
+  animation: cat-walk-bounce 0.45s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-cat-walk,
+  .animate-cat-walk-bounce {
+    animation: none;
+  }
+}

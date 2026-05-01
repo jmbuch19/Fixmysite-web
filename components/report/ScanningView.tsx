@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useEffect, useState } from 'react'
 
 // Narrative phrases shown while the Phase 2 worker runs (~30-90s real
@@ -71,6 +72,35 @@ export function ScanningView() {
         >
           {SCAN_NARRATIVE[narrativeIdx]}
         </span>
+      </div>
+
+      {/* Walking Bugbite. Paces from the left edge of the card to the
+          right and back, flipping horizontally so it always faces the
+          direction of motion. The walker (outer div) handles the
+          horizontal pace via `animate-cat-walk`; the bouncer (inner
+          div) handles a small vertical bob via `animate-cat-walk-bounce`
+          so the bob stays smooth during turn-arounds. mix-blend-multiply
+          melts the cat-mark PNG's white background into the amber-50
+          card surface — same trick the hero logo uses. aria-hidden
+          since this is purely decorative. */}
+      <div
+        className="relative mt-5 h-9 w-full"
+        aria-hidden
+      >
+        <div
+          className="animate-cat-walk absolute bottom-0"
+          style={{ width: 36, height: 36 }}
+        >
+          <div className="animate-cat-walk-bounce h-full w-full">
+            <Image
+              src="/brand/logo-mark.png"
+              alt=""
+              width={397}
+              height={294}
+              className="h-full w-full object-contain mix-blend-multiply"
+            />
+          </div>
+        </div>
       </div>
 
       <p className="mt-4 text-xs text-amber-900/80">
