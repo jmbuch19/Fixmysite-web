@@ -1,6 +1,5 @@
 'use client'
 
-import Image from 'next/image'
 import { useEffect, useState } from 'react'
 
 // Narrative phrases shown while the Phase 2 worker runs (~30-90s real
@@ -74,29 +73,37 @@ export function ScanningView() {
         </span>
       </div>
 
-      {/* Walking Bugbite. Paces from the left edge of the card to the
-          right and back, flipping horizontally so it always faces the
-          direction of motion. The walker (outer div) handles the
-          horizontal pace via `animate-cat-walk`; the bouncer (inner
-          div) handles a small vertical bob via `animate-cat-walk-bounce`
-          so the bob stays smooth during turn-arounds. mix-blend-multiply
-          melts the cat-mark PNG's white background into the amber-50
-          card surface — same trick the hero logo uses. aria-hidden
-          since this is purely decorative. */}
+      {/* Walking Bugbite. The animated GIF is the cat's actual
+          movement (walking, sniffing around, wagging tail, sitting —
+          the source MP4 has all four behaviours in sequence over
+          ~6 seconds). CSS layers a slow horizontal pace on top so
+          Bugbite traverses the card width too — net effect: a curious
+          cat exploring the scanning card.
+
+          Why a plain <img> instead of next/image: animated GIFs lose
+          their animation when run through Next's image optimizer
+          unless `unoptimized` is set, and unoptimized + the path-
+          based <Image> ergonomics are no nicer than a vanilla img
+          for a 134KB asset. Keep it simple.
+
+          mix-blend-multiply melts the GIF's white background into the
+          amber-50 card surface — same trick the hero logo uses.
+          aria-hidden since this is purely decorative animation. */}
       <div
-        className="relative mt-5 h-9 w-full"
+        className="relative mt-5 h-10 w-full"
         aria-hidden
       >
         <div
           className="animate-cat-walk absolute bottom-0"
-          style={{ width: 36, height: 36 }}
+          style={{ width: 40, height: 40 }}
         >
           <div className="animate-cat-walk-bounce h-full w-full">
-            <Image
-              src="/brand/logo-mark.png"
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/brand/cat-walking.gif"
               alt=""
-              width={397}
-              height={294}
+              width={96}
+              height={96}
               className="h-full w-full object-contain mix-blend-multiply"
             />
           </div>

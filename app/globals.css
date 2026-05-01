@@ -66,9 +66,9 @@ body {
    the card" regardless of card width. */
 @keyframes cat-walker {
   0%, 4%   { left: 0;                  transform: scaleX(1);  }
-  48%      { left: calc(100% - 36px);  transform: scaleX(1);  }
-  50%      { left: calc(100% - 36px);  transform: scaleX(-1); }
-  52%      { left: calc(100% - 36px);  transform: scaleX(-1); }
+  48%      { left: calc(100% - 40px);  transform: scaleX(1);  }
+  50%      { left: calc(100% - 40px);  transform: scaleX(-1); }
+  52%      { left: calc(100% - 40px);  transform: scaleX(-1); }
   96%      { left: 0;                  transform: scaleX(-1); }
   98%      { left: 0;                  transform: scaleX(-1); }
   100%     { left: 0;                  transform: scaleX(1);  }

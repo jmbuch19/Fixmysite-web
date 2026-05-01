@@ -1,0 +1,20 @@
+# Working files / experiments — kept on local disk but never committed.
+#
+# Anything Bugbite production actually serves should be committed
+# individually (and is, for now: logo-light.png, logo-mark.png,
+# cat-walking.gif, Animatedlogo.mp4). Working files below stay local
+# so the repo doesn't bloat with sources we've already converted
+# downstream into the production assets.
+
+# AI-generated frame samples and brand experiments (one-off PNG/JPG
+# tests that don't ship anywhere)
+*.jpg
+*.jpeg
+
+# ezgif.com round-trip artifacts — we use ffmpeg-encoded GIFs instead
+# (better frame rate control, smaller output)
+ezgif*.gif
+
+# Source videos for derived assets — only the converted output ships
+# (e.g. cat-walking.gif is encoded from "Black cat animated logo... .mp4")
+Black cat*.mp4
