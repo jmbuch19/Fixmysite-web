@@ -83,6 +83,19 @@ fixmysite.in is not responsible for:
 
 We vet our partner developers but cannot guarantee the quality of their work. We provide ratings and reviews to help you make informed decisions.
 
+### If you are a developer joining the partner network
+
+By registering as a fixmysite.in partner, you agree to the following:
+
+- **fixmysite.in is a lead introduction service.** We match you with potential clients based on your city, skills, and rating. We are not a party to any project agreement you make with the client.
+- **Project fee, scope, and payment terms are between you and the client.** You negotiate the fee directly. The client pays you directly. fixmysite.in does not collect, hold, or process project payments on your behalf.
+- **fixmysite.in's only fee is a ₹200 platform fee per accepted lead.** This fee is charged when you reply YES to a lead introduction. If you decline the lead, no fee applies. The fee covers the introduction; it does not entitle fixmysite.in to a share of the project work.
+- **You are responsible for the quality, timeliness, and completion of any work you accept.** fixmysite.in does not guarantee, warranty, or indemnify your work to clients.
+- **You are responsible for your own taxes, GST, invoicing, and statutory compliance.** fixmysite.in does not issue invoices or collect tax on your behalf.
+- **fixmysite.in may remove you from the partner network** at any time for: poor client ratings sustained over multiple jobs, verified complaints of fraud or non-delivery, false information on your registration, or use of the platform for purposes other than legitimate freelance work.
+
+Disputes between you and a client are resolved directly between the two parties. fixmysite.in is not an arbiter or mediator and cannot enforce payment, scope, or refund decisions on either side.
+
 ---
 
 ## 7. Enterprise and institution scans

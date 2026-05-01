@@ -174,7 +174,10 @@ export default function Home() {
       <footer className="border-t border-zinc-100 bg-white">
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-5 py-6 text-sm text-zinc-500 sm:flex-row sm:items-center sm:justify-between sm:px-8">
           <span>© {new Date().getFullYear()} fixmysite.in · Made for Indian businesses</span>
-          <nav className="flex gap-5">
+          <nav className="flex flex-wrap gap-5">
+            <Link href="/developer" className="hover:text-zinc-900">
+              For developers
+            </Link>
             <Link href="/about-us" className="hover:text-zinc-900">
               About
             </Link>
