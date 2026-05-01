@@ -20,3 +20,34 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
 }
+
+/* ─── Custom animations ───────────────────────────────────────────── */
+
+/* `animate-fade-in` — used by the cycling narrative line on the
+   scanning state of /report/[scan_id]/full. React drops in a fresh
+   element each tick (key={narrativeIdx}), this fades the new copy in
+   over 400ms so the swap doesn't feel jarring. Pairs with
+   Tailwind's animate-ping on a sibling dot for the breathing effect. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 400ms ease-out;
+}
+
+/* Respect reduced-motion preferences — no movement, opacity-only swap.
+   The cycling narrative is decorative, never load-bearing for the user
+   to understand the page state. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in {
+    animation: none;
+  }
+}

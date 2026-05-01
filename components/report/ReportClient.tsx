@@ -5,6 +5,7 @@ import { captureEvent } from '@/lib/analytics/posthog'
 import type { Phase1Result } from '@/lib/scan/phase1'
 import type { Issue } from '@/lib/scan/phase2'
 import { formatIssueTitle } from '@/lib/report/formatTitle'
+import { ScanningView } from '@/components/report/ScanningView'
 import type { ReportData, ReportScan } from '@/lib/report/types'
 
 export type { ReportData, ReportScan }
@@ -335,33 +336,9 @@ function QueuedView() {
   )
 }
 
-function ScanningView() {
-  return (
-    <section className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-6">
-      <h2 className="text-lg font-semibold text-amber-900">
-        Bugbite is on it…
-      </h2>
-      <ul className="mt-4 space-y-2 text-sm text-amber-900">
-        <li className="flex gap-2">
-          <span aria-hidden>•</span>
-          <span>Bugbite is checking your phone numbers…</span>
-        </li>
-        <li className="flex gap-2">
-          <span aria-hidden>•</span>
-          <span>Bugbite is running through your links…</span>
-        </li>
-        <li className="flex gap-2">
-          <span aria-hidden>•</span>
-          <span>Bugbite is reading your content…</span>
-        </li>
-      </ul>
-      <p className="mt-4 text-xs text-amber-900/80">
-        This page updates automatically. You can close the tab — Bugbite will
-        email you when the report is ready.
-      </p>
-    </section>
-  )
-}
+// ScanningView extracted to components/report/ScanningView.tsx so the
+// unlisted /preview/scanning route can render the same component for
+// design-iteration testing without requiring a paid scan to render it.
 
 function FailedView() {
   return (
