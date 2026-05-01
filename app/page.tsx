@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { ScanForm } from '@/components/scan/ScanForm'
+import { WaitlistForm } from '@/components/waitlist/WaitlistForm'
 
 const CHECKS = [
   {
@@ -86,6 +87,29 @@ export default function Home() {
               <li>No signup or login</li>
               <li>Built for Indian small businesses</li>
             </ul>
+          </div>
+        </section>
+
+        {/* Second-door waitlist — for visitors without a website yet.
+            Thin white band between the mint hero and the next mint
+            section. Subtle by design: ghost-style submit button so it
+            never competes with the primary "Scan my site" CTA above. */}
+        <section className="border-y border-zinc-100 bg-white">
+          <div className="mx-auto w-full max-w-3xl px-5 py-8 sm:px-8 sm:py-10">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+              <div className="max-w-md">
+                <p className="text-base font-semibold text-zinc-900">
+                  No website yet?
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-zinc-600">
+                  Be the first to know when Bugbite launches website
+                  planning for Indian businesses.
+                </p>
+              </div>
+              <div className="sm:min-w-[360px] sm:max-w-md sm:flex-1">
+                <WaitlistForm source="landing" />
+              </div>
+            </div>
           </div>
         </section>
 
