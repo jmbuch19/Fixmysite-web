@@ -73,21 +73,23 @@ export function ScanningView() {
         </span>
       </div>
 
-      {/* Walking Bugbite. The animated GIF is the cat's actual
-          movement (walking, sniffing around, wagging tail, sitting —
-          the source MP4 has all four behaviours in sequence over
-          ~6 seconds). CSS layers a slow horizontal pace on top so
-          Bugbite traverses the card width too — net effect: a curious
-          cat exploring the scanning card.
+      {/* Walking Bugbite. Animated WebP with the source video's white
+          background keyed out to alpha — sits cleanly on the amber
+          card with no blend-mode trick or visible bounding box. CSS
+          layers a slow horizontal pace on top so Bugbite traverses
+          the card width as well — net effect: a curious cat
+          exploring the scanning card.
 
-          Why a plain <img> instead of next/image: animated GIFs lose
-          their animation when run through Next's image optimizer
-          unless `unoptimized` is set, and unoptimized + the path-
-          based <Image> ergonomics are no nicer than a vanilla img
-          for a 134KB asset. Keep it simple.
+          Source: encoded from the "Black cat animated logo with cat
+          walking, sniffing around, wagging tail, and sitting down in
+          sequence" MP4 via ffmpeg colorkey + libwebp_anim, 96px,
+          12fps, 5.91s loop, 130 KB.
 
-          mix-blend-multiply melts the GIF's white background into the
-          amber-50 card surface — same trick the hero logo uses.
+          Plain <img> instead of next/image because animated WebP is
+          opaque to Next's image optimizer in the same way GIF is —
+          the optimizer would re-encode and lose animation unless
+          `unoptimized` is set. Vanilla img is simpler at this size.
+
           aria-hidden since this is purely decorative animation. */}
       <div
         className="relative mt-5 h-10 w-full"
@@ -100,11 +102,11 @@ export function ScanningView() {
           <div className="animate-cat-walk-bounce h-full w-full">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/brand/cat-walking.gif"
+              src="/brand/cat-walking.webp"
               alt=""
               width={96}
               height={96}
-              className="h-full w-full object-contain mix-blend-multiply"
+              className="h-full w-full object-contain"
             />
           </div>
         </div>
