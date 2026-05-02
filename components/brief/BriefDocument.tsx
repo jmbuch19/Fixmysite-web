@@ -1,6 +1,5 @@
 import {
   Document,
-  Font,
   Image as PdfImage,
   Page,
   StyleSheet,
@@ -17,27 +16,13 @@ import type { BriefOutput, BriefSection } from '@/lib/claude/brief'
 // keep "Powered by fixmysite.in" in footer
 // triggered by developer_partners.plan = 'agency'
 
-// ─── Font registration (mirrors ReportDocument exactly) ──────────────
+// ─── Font registration ───────────────────────────────────────────────
+// See lib/pdf/registerBrandFont for why we bundle the TTF locally
+// instead of fetching from the @fontsource CDN.
 
-const PJS_400 =
-  'https://cdn.jsdelivr.net/npm/@fontsource/plus-jakarta-sans@5.0.0/files/plus-jakarta-sans-latin-400-normal.ttf'
-const PJS_600 =
-  'https://cdn.jsdelivr.net/npm/@fontsource/plus-jakarta-sans@5.0.0/files/plus-jakarta-sans-latin-600-normal.ttf'
+import { registerBrandFont } from '@/lib/pdf/registerBrandFont'
 
-try {
-  Font.register({
-    family: 'Plus Jakarta Sans',
-    fonts: [
-      { src: PJS_400, fontWeight: 400 },
-      { src: PJS_600, fontWeight: 600 },
-    ],
-  })
-} catch (err) {
-  console.warn(
-    '[brief-pdf] Plus Jakarta Sans registration failed — Helvetica will be used',
-    err instanceof Error ? err.message : err,
-  )
-}
+registerBrandFont('brief-pdf')
 
 // ─── Logo (module-load) ───────────────────────────────────────────────
 

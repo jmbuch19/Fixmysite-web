@@ -1,6 +1,5 @@
 import {
   Document,
-  Font,
   Image as PdfImage,
   Page,
   StyleSheet,
@@ -19,36 +18,13 @@ import type { Issue } from '@/lib/scan/phase2'
 // keep "Powered by fixmysite.in" in footer
 // triggered by developer_partners.plan = 'agency'
 
-// ─── Font registration (module-load, once per cold start) ─────────────
-//
-// Source: jsDelivr-mirrored @fontsource files (Plus Jakarta Sans
-// originates on Google Fonts; jsDelivr serves the npm-bundled TTFs at
-// stable version-pinned URLs, faster + more reliable than gstatic.com's
-// hashed paths). Registration is synchronous — only sets up the family
-// → URL mapping. Actual font bytes are fetched lazily on first render
-// that uses the family. The API route catches render-time fetch errors
-// and retries with Helvetica, so a Google CDN outage cannot fail PDF
-// generation.
+// ─── Font registration ───────────────────────────────────────────────
+// See lib/pdf/registerBrandFont for why we bundle the TTF locally
+// instead of fetching from the @fontsource CDN.
 
-const PJS_400 =
-  'https://cdn.jsdelivr.net/npm/@fontsource/plus-jakarta-sans@5.0.0/files/plus-jakarta-sans-latin-400-normal.ttf'
-const PJS_600 =
-  'https://cdn.jsdelivr.net/npm/@fontsource/plus-jakarta-sans@5.0.0/files/plus-jakarta-sans-latin-600-normal.ttf'
+import { registerBrandFont } from '@/lib/pdf/registerBrandFont'
 
-try {
-  Font.register({
-    family: 'Plus Jakarta Sans',
-    fonts: [
-      { src: PJS_400, fontWeight: 400 },
-      { src: PJS_600, fontWeight: 600 },
-    ],
-  })
-} catch (err) {
-  console.warn(
-    '[pdf] Plus Jakarta Sans registration failed — Helvetica will be used',
-    err instanceof Error ? err.message : err,
-  )
-}
+registerBrandFont('report-pdf')
 
 // ─── Logo (module-load, once per cold start) ──────────────────────────
 //

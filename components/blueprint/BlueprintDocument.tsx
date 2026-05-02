@@ -1,6 +1,5 @@
 import {
   Document,
-  Font,
   Image as PdfImage,
   Page,
   StyleSheet,
@@ -11,27 +10,23 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { BlueprintOutput } from '@/lib/claude/blueprint'
 
-// ─── Font registration (mirrors BriefDocument exactly) ───────────────
+// ─── Font registration (locally bundled — see lib/pdf/registerBrandFont) ─
+//
+// We bundle Plus Jakarta Sans inside public/fonts/ instead of fetching
+// from the @fontsource CDN at render time. Two reasons:
+//   1. @fontsource v5 dropped TTF entirely; only ships woff/woff2 which
+//      @react-pdf cannot reliably consume. Old CDN URLs silently 404'd
+//      and every PDF fell back to built-in Helvetica.
+//   2. Built-in PDF Helvetica has no rupee glyph (₹ → superscript 1),
+//      which is unacceptable for a product that quotes Indian prices on
+//      every page.
+// The variable TTF is registered once for both 400 and 600 — bold and
+// regular render visually similar in the PDF, which we accept in
+// exchange for guaranteed rupee rendering and zero network dependency.
 
-const PJS_400 =
-  'https://cdn.jsdelivr.net/npm/@fontsource/plus-jakarta-sans@5.0.0/files/plus-jakarta-sans-latin-400-normal.ttf'
-const PJS_600 =
-  'https://cdn.jsdelivr.net/npm/@fontsource/plus-jakarta-sans@5.0.0/files/plus-jakarta-sans-latin-600-normal.ttf'
+import { registerBrandFont } from '@/lib/pdf/registerBrandFont'
 
-try {
-  Font.register({
-    family: 'Plus Jakarta Sans',
-    fonts: [
-      { src: PJS_400, fontWeight: 400 },
-      { src: PJS_600, fontWeight: 600 },
-    ],
-  })
-} catch (err) {
-  console.warn(
-    '[blueprint-pdf] Plus Jakarta Sans registration failed — Helvetica will be used',
-    err instanceof Error ? err.message : err,
-  )
-}
+registerBrandFont('blueprint-pdf')
 
 // ─── Logo (module-load) ───────────────────────────────────────────────
 
