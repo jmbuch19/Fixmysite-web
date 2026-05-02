@@ -90,10 +90,19 @@ export default function Home() {
             {/* Soft hint that international rollout is on the roadmap.
                 See memory/international_rollout_plan.md for the full
                 plan; surfaced here so non-IN visitors who land on the
-                hero see they're not unwelcome — just early. */}
+                hero see they're not unwelcome — just early. The
+                mailto link lets them surface themselves; pre-filled
+                subject means international pings sort cleanly in the
+                inbox without needing a contact form. */}
             <p className="mt-2 text-xs italic text-zinc-500">
-              Bugbite ventures abroad soon — say hi if you&apos;re scanning
-              from outside India.
+              Bugbite ventures abroad soon —{' '}
+              <a
+                href="mailto:hello@fixmysite.in?subject=Scanning%20from%20outside%20India"
+                className="font-medium text-brand underline underline-offset-2 hover:text-brand-accent"
+              >
+                say hi
+              </a>{' '}
+              if you&apos;re scanning from outside India.
             </p>
           </div>
         </section>
