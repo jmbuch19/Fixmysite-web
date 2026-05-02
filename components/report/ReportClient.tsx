@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { captureEvent } from '@/lib/analytics/posthog'
 import type { Phase1Result } from '@/lib/scan/phase1'
@@ -419,8 +420,42 @@ function FullReportSections({
 
       <SolutionMap issues={issues} />
 
+      <BriefUpsell scanId={scan.id} />
+
       <SendToDeveloper scanId={scan.id} />
     </div>
+  )
+}
+
+// ─── §10.5 Brief upsell ─────────────────────────────────────────────────
+// Shown between the Solution Map and the Send-to-Developer block. The
+// owner has just absorbed Bugbite's findings; the natural next thought
+// is "okay, who's going to do this?" — that's the moment to surface the
+// brief generator. CTA copy is opt-in language: tell Bugbite what YOU
+// want done, then hand it to your developer.
+
+function BriefUpsell({ scanId }: { scanId: string }) {
+  return (
+    <section className="rounded-xl border-2 border-brand bg-brand-surface p-6">
+      <p className="text-xs font-semibold uppercase tracking-wider text-brand">
+        Going to fix this?
+      </p>
+      <h2 className="mt-2 text-lg font-semibold text-zinc-900">
+        Get a developer brief Bugbite writes for you — ₹99
+      </h2>
+      <p className="mt-2 text-sm leading-relaxed text-zinc-700">
+        Tell Bugbite what you want done in plain language. Bugbite turns
+        your words into a precise technical brief your developer can quote
+        against — with priority, effort estimates, and a &ldquo;not in
+        scope&rdquo; list so the project stays focused.
+      </p>
+      <Link
+        href={`/brief/${scanId}`}
+        className="mt-4 inline-flex items-center justify-center rounded-lg bg-brand px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-accent"
+      >
+        Start your brief →
+      </Link>
+    </section>
   )
 }
 
