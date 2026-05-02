@@ -87,6 +87,14 @@ export default function Home() {
               <li>No signup or login</li>
               <li>Built for Indian small businesses</li>
             </ul>
+            {/* Soft hint that international rollout is on the roadmap.
+                See memory/international_rollout_plan.md for the full
+                plan; surfaced here so non-IN visitors who land on the
+                hero see they're not unwelcome — just early. */}
+            <p className="mt-2 text-xs italic text-zinc-500">
+              Bugbite ventures abroad soon — say hi if you&apos;re scanning
+              from outside India.
+            </p>
           </div>
         </section>
 
