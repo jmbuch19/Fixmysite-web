@@ -99,6 +99,33 @@ export function BlueprintPaymentGate({
     document.body.appendChild(script)
   }, [])
 
+  // Prewarm /api/blueprint/payment/verify on mount. The route is rarely
+  // hit and Next.js compiles routes on first request — that cold-start
+  // (~30s in dev, ~2-3s on Vercel) used to land inside Razorpay's
+  // handler callback, where the verify fetch would time out and the
+  // payment would orbit unconfirmed. A no-op POST forces compilation
+  // up-front so the real verify hits a warm route.
+  //
+  // Sends an obviously-invalid signature so the route returns 403 fast
+  // without touching the DB. We don't care about the response — only
+  // that compilation has happened.
+  useEffect(() => {
+    fetch('/api/blueprint/payment/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        blueprint_id: blueprintId,
+        razorpay_order_id: 'prewarm',
+        razorpay_payment_id: 'prewarm',
+        razorpay_signature: 'prewarm',
+      }),
+      keepalive: true,
+    }).catch(() => {
+      // Network error during prewarm is harmless — the real verify
+      // path will surface its own error if needed.
+    })
+  }, [blueprintId])
+
   function waitForRazorpay(): Promise<void> {
     return new Promise((resolve, reject) => {
       if (typeof window !== 'undefined' && window.Razorpay) return resolve()
