@@ -1,6 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { BlueprintPaymentGate } from '@/components/blueprint/BlueprintPaymentGate'
+import { BLUEPRINT_PRICING } from '@/constants/pricing'
 import type {
   BlueprintGetResponse,
   BlueprintPreviewFields,
@@ -14,6 +17,7 @@ type LoadState =
       phase: 'ready'
       businessName: string | null
       ownerName: string | null
+      ownerEmail: string | null
       preview: BlueprintPreviewFields
       paymentStatus: BlueprintGetResponse['payment_status']
     }
@@ -37,6 +41,7 @@ type LoadState =
  * subsequent calls) so a double-mount or back-button is harmless.
  */
 export function BlueprintPreview({ blueprintId }: { blueprintId: string }) {
+  const router = useRouter()
   const [state, setState] = useState<LoadState>({ phase: 'loading' })
   // Guard against double-fire under React 18 StrictMode dev double-mount.
   const startedRef = useRef(false)
@@ -51,6 +56,13 @@ export function BlueprintPreview({ blueprintId }: { blueprintId: string }) {
       try {
         const initial = await fetchBlueprint(blueprintId)
         if (cancelled) return
+
+        // Already paid? Skip the preview entirely — the owner has
+        // unlocked the full blueprint, send them straight to it.
+        if (initial.payment_status === 'paid') {
+          router.replace(`/plan/blueprint/${blueprintId}/full`)
+          return
+        }
 
         if (initial.status === 'draft' || !initial.preview) {
           setState({ phase: 'generating' })
@@ -94,6 +106,7 @@ export function BlueprintPreview({ blueprintId }: { blueprintId: string }) {
         phase: 'ready',
         businessName: payload.business_name,
         ownerName: payload.owner_name,
+        ownerEmail: payload.owner_email,
         preview: payload.preview,
         paymentStatus: payload.payment_status,
       })
@@ -104,7 +117,7 @@ export function BlueprintPreview({ blueprintId }: { blueprintId: string }) {
     return () => {
       cancelled = true
     }
-  }, [blueprintId])
+  }, [blueprintId, router])
 
   if (state.phase === 'loading' || state.phase === 'generating') {
     return <Loader phase={state.phase} />
@@ -131,6 +144,7 @@ export function BlueprintPreview({ blueprintId }: { blueprintId: string }) {
       blueprintId={blueprintId}
       businessName={state.businessName}
       ownerName={state.ownerName}
+      ownerEmail={state.ownerEmail}
       preview={state.preview}
     />
   )
@@ -204,11 +218,13 @@ function PreviewBody({
   blueprintId,
   businessName,
   ownerName,
+  ownerEmail,
   preview,
 }: {
   blueprintId: string
   businessName: string | null
   ownerName: string | null
+  ownerEmail: string | null
   preview: BlueprintPreviewFields
 }) {
   const subjectName = businessName ?? 'your business'
@@ -248,63 +264,14 @@ function PreviewBody({
         </div>
       </section>
 
-      {/* Paywall */}
-      <section className="rounded-xl border-2 border-zinc-900 bg-zinc-900 p-6 text-white">
-        <p className="text-xs font-semibold uppercase tracking-wider text-white/60">
-          Locked
-        </p>
-        <h2 className="mt-2 text-xl font-semibold">
-          Unlock the full blueprint
-        </h2>
-        <ul className="mt-4 space-y-2 text-sm leading-relaxed text-white/90">
-          <li className="flex gap-2">
-            <span aria-hidden className="text-brand">
-              ✓
-            </span>
-            <span>Why this recommendation is right for you</span>
-          </li>
-          <li className="flex gap-2">
-            <span aria-hidden className="text-brand">
-              ✓
-            </span>
-            <span>Why simpler or more complex options would not work</span>
-          </li>
-          <li className="flex gap-2">
-            <span aria-hidden className="text-brand">
-              ✓
-            </span>
-            <span>The exact pages and features you need</span>
-          </li>
-          <li className="flex gap-2">
-            <span aria-hidden className="text-brand">
-              ✓
-            </span>
-            <span>Technology suggestion with Indian context and real prices</span>
-          </li>
-          <li className="flex gap-2">
-            <span aria-hidden className="text-brand">
-              ✓
-            </span>
-            <span>Step-by-step next actions</span>
-          </li>
-        </ul>
-        <button
-          type="button"
-          onClick={() => {
-            // TODO(blueprint, slice 2.2): wire to /api/blueprint/payment/create-order
-            // and Razorpay checkout. Same pattern as scan + brief.
-            alert(
-              "Payment flow ships in the next release. Bugbite will email you when it is live.",
-            )
-          }}
-          className="mt-6 inline-flex w-full items-center justify-center rounded-lg bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-accent sm:w-auto"
-        >
-          Unlock full blueprint — ₹99 →
-        </button>
-        <p className="mt-3 text-xs text-white/60">
-          One-time payment. PDF download included. No subscription.
-        </p>
-      </section>
+      {/* Razorpay paywall — owns its own state machine, error UI, and
+          dark card layout. Caller just embeds it. */}
+      <BlueprintPaymentGate
+        blueprintId={blueprintId}
+        priceRupees={BLUEPRINT_PRICING.full.price}
+        ownerEmail={ownerEmail}
+        ownerName={ownerName}
+      />
 
       <p className="text-xs text-zinc-400">Reference: {blueprintId}</p>
     </div>

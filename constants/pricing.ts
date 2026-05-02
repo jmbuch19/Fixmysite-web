@@ -36,6 +36,14 @@ export const BRIEF_PRICING = {
   bundle:           { price: 199, label: 'Scan + Brief Bundle' },
 } as const
 
+// ─── Blueprint pricing (SPEC §20) ───────────────────────────────────────
+
+export const BLUEPRINT_PRICING = {
+  full:   { price: 99,  label: 'Website Blueprint' },
+  // Bundle deferred — SPEC mentions "Blueprint + first-year monthly
+  // monitor = ₹999" but the monitor product itself ships post-v1.
+} as const
+
 // ─── Predefined intake cards for the brief input form ──────────────────
 //
 // Owner-facing labels (with emoji prefix for the on-page UI). The

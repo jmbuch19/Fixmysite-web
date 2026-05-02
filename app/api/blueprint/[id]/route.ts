@@ -31,6 +31,10 @@ export type BlueprintGetResponse = {
   payment_status: 'unpaid' | 'paid' | 'refunded' | 'failed'
   business_name: string | null
   owner_name: string | null
+  // Returned so the payment gate can prefill Razorpay's modal — saves
+  // the owner re-typing their email. Never their phone or name beyond
+  // what they already gave the wizard.
+  owner_email: string | null
   // Populated once Claude generation has run.
   preview: BlueprintPreviewFields | null
   // Populated only after payment_status === 'paid'.
@@ -68,7 +72,7 @@ export async function GET(
   const { data, error } = await supabase
     .from('website_blueprints')
     .select(
-      'id, status, payment_status, business_name, owner_name, blueprint_json',
+      'id, status, payment_status, business_name, owner_name, owner_email, blueprint_json',
     )
     .eq('id', id)
     .maybeSingle()
@@ -111,6 +115,7 @@ export async function GET(
     payment_status: data.payment_status as BlueprintGetResponse['payment_status'],
     business_name: data.business_name ?? null,
     owner_name: data.owner_name ?? null,
+    owner_email: data.owner_email ?? null,
     preview,
     full: isPaid ? blueprint : null,
   }
