@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { BlueprintActionBar } from '@/components/blueprint/BlueprintActionBar'
 import type {
   BlueprintGetResponse,
 } from '@/app/api/blueprint/[id]/route'
@@ -309,6 +310,9 @@ function FullBody({
           </ul>
         </Section>
       )}
+
+      {/* Action bar — Download PDF + Send to developer. Slice 2.3. */}
+      <BlueprintActionBar blueprintId={blueprintId} />
 
       {/* Cross-sell — scan upsell. SPEC §20: "Already have a site?
           Scan it for ₹49." Bundle (Blueprint + monitor = ₹999) waits

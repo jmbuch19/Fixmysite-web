@@ -442,6 +442,105 @@ export async function sendBriefToDeveloper(args: {
   })
 }
 
+// ─── 9. Blueprint — to owner (auto-fired on payment verify) ──────────
+
+/**
+ * Triggered from /api/blueprint/payment/verify after a successful
+ * Razorpay verify. Owner gets the full blueprint PDF in their inbox
+ * even if they close the tab before reaching /full.
+ *
+ * Tone matches the brief-ready-to-owner template: direct, gentle,
+ * Bugbite-voiced. No marketing — only the blueprint and how to use
+ * it.
+ */
+export async function sendBlueprintReadyToOwner(args: {
+  to: string
+  businessName: string | null
+  blueprintId: string
+  appUrl: string // e.g. https://fixmysite.in
+  recommendationLabel: string
+  pdfBuffer: Buffer
+  pdfFilename: string
+}): Promise<SendResult> {
+  const subject = args.businessName
+    ? `Bugbite has the website blueprint ready for ${args.businessName}`
+    : 'Bugbite has your website blueprint ready'
+  const viewUrl = `${args.appUrl.replace(/\/+$/, '')}/plan/blueprint/${args.blueprintId}/full`
+  const subjectName = args.businessName ?? 'your business'
+
+  const text = [
+    'Hi,',
+    '',
+    `Bugbite has prepared the website blueprint for ${subjectName}.`,
+    '',
+    `Recommendation: ${args.recommendationLabel}.`,
+    '',
+    'The PDF is attached — read it once start to finish before sharing it with anyone. It explains why this kind of site fits, what pages and features you need, the technology choice with Indian context, and the step-by-step plan to get there.',
+    '',
+    `You can also view it online any time: ${viewUrl}`,
+    '',
+    'Need a developer to build it? Reply with your city and Bugbite will help connect you. Questions, or want to revise any of the answers? Reply to this email or write to hello@fixmysite.in.',
+    '',
+    '— fixmysite.in',
+  ].join('\n')
+
+  return send({
+    to: args.to,
+    subject,
+    text,
+    context: 'blueprint_ready_owner',
+    attachments: [{ filename: args.pdfFilename, content: args.pdfBuffer }],
+  })
+}
+
+// ─── 10. Blueprint — to developer (share button) ─────────────────────
+
+/**
+ * Triggered when an owner uses "Send to your developer" on
+ * /plan/blueprint/[id]/full. Same peer-to-peer tone as the brief
+ * template — recipient is a freelance developer who reads code for
+ * a living.
+ */
+export async function sendBlueprintToDeveloper(args: {
+  to: string
+  businessName: string | null
+  recommendationLabel: string
+  pdfBuffer: Buffer
+  pdfFilename: string
+}): Promise<SendResult> {
+  const subject = args.businessName
+    ? `Website blueprint for ${args.businessName} — from your client`
+    : 'Website blueprint from your client'
+  const subjectName = args.businessName ?? 'your client'
+
+  const text = [
+    'Hi,',
+    '',
+    `Your client has shared a website blueprint for ${subjectName} via fixmysite.in. Bugbite (their planning tool) prepared the recommendation based on a structured intake covering business reality, scale, expectations, and budget.`,
+    '',
+    `Recommendation: ${args.recommendationLabel}. Full PDF attached. The blueprint includes:`,
+    '  - Why this kind of site is right for the business',
+    '  - Why simpler or more complex options would not work',
+    '  - The exact pages and features required',
+    '  - A technology suggestion with Indian context (Razorpay, Hostinger India, etc.)',
+    '  - A numbered next-step plan with realistic INR costs',
+    '',
+    'Use it as a scope brief — the budget and timeline numbers are Bugbite\'s estimate for an average solo Indian freelance developer. Quote against this and the conversation with your client should stay grounded.',
+    '',
+    'Questions? Reply to this email or write to hello@fixmysite.in.',
+    '',
+    '— fixmysite.in',
+  ].join('\n')
+
+  return send({
+    to: args.to,
+    subject,
+    text,
+    context: 'blueprint_send_developer',
+    attachments: [{ filename: args.pdfFilename, content: args.pdfBuffer }],
+  })
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────
 
 function formatTimestamp(iso: string): string {
