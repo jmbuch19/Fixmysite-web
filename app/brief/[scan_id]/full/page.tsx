@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createServiceClient } from '@/lib/supabase/server'
 import { BriefRenderer } from '@/components/brief/BriefRenderer'
+import { BriefActionBar } from '@/components/brief/BriefActionBar'
 import { getLatestPaidBriefForScan } from '@/lib/brief/store'
 import { BriefHeader, BriefFooter } from '@/app/brief/[scan_id]/page'
 
@@ -81,23 +82,12 @@ export default async function BriefFullPage({
             sets the project boundary.
           </p>
 
-          {/* TODO(slice 2.3): action bar with Download PDF + Send to
-              developer. For 2.2 the brief is read-only on screen. The
-              email-on-verify will land at the same time so owners get
-              the PDF in their inbox automatically. */}
-
           <div className="mt-8">
             <BriefRenderer brief={brief.brief_json} mode="full" />
           </div>
 
-          <div className="mt-10 rounded-lg border border-zinc-200 bg-white p-5 text-sm text-zinc-600">
-            <p>
-              <span className="font-semibold text-zinc-900">Coming soon:</span>{' '}
-              download as PDF and send straight to your developer&apos;s
-              email. For now, you can scroll, screenshot, or copy any
-              section — and Bugbite will email you the formatted PDF as
-              soon as that feature ships next.
-            </p>
+          <div className="mt-8">
+            <BriefActionBar briefId={brief.id} />
           </div>
 
           <p className="mt-6 text-xs text-zinc-400">

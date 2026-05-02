@@ -19,11 +19,17 @@ export type SendResult =
 
 // ─── Internal — shared send pipeline ──────────────────────────────────
 
+type Attachment = {
+  filename: string
+  content: Buffer
+}
+
 async function send(args: {
   to: string
   subject: string
   text: string
   context: string // for log lines, e.g. 'otp', 'inquiry_approved'
+  attachments?: Attachment[]
 }): Promise<SendResult> {
   const resend = getResend()
   if (!resend) {
@@ -40,6 +46,12 @@ async function send(args: {
       to: args.to,
       subject: args.subject,
       text: args.text,
+      // Resend SDK accepts attachments[] with filename + content (Buffer
+      // or base64 string). We pass Buffer directly; SDK base64-encodes
+      // on the wire.
+      ...(args.attachments && args.attachments.length > 0
+        ? { attachments: args.attachments }
+        : {}),
     })
 
     if (error) {
@@ -55,6 +67,7 @@ async function send(args: {
       context: args.context,
       to: args.to,
       id: data?.id,
+      attachments: args.attachments?.length ?? 0,
     })
     return { ok: true, id: data?.id }
   } catch (err) {
@@ -327,6 +340,105 @@ export async function sendReportToDeveloper(args: {
     subject,
     text: lines.join('\n'),
     context: 'send_developer',
+  })
+}
+
+// ─── 7. Brief ready — to owner (CLAUDE.md template 5) ────────────────
+
+/**
+ * Triggered automatically by /api/brief/payment/verify after a brief
+ * is paid. Owner gets the PDF attached so they can forward it without
+ * needing to log back into the site.
+ *
+ * Bugbite voice — owner-facing, warm. The PDF attachment is the
+ * primary value; the link is a fallback for owners who want to view
+ * online or share the URL.
+ */
+export async function sendBriefReadyToOwner(args: {
+  to: string
+  hostname: string
+  briefId: string
+  scanId: string
+  appUrl: string // e.g. https://fixmysite.in
+  workItemCount: number
+  pdfBuffer: Buffer
+  pdfFilename: string
+}): Promise<SendResult> {
+  const subject = `Bugbite has your developer brief ready for ${args.hostname}`
+  const viewUrl = `${args.appUrl.replace(/\/+$/, '')}/brief/${args.scanId}/full`
+
+  const text = [
+    'Hi,',
+    '',
+    `Bugbite has prepared your developer brief for ${args.hostname}.`,
+    '',
+    `It includes ${args.workItemCount} work ${
+      args.workItemCount === 1 ? 'item' : 'items'
+    } with full technical specifications. Your original words are preserved exactly as you wrote them.`,
+    '',
+    "The PDF is attached to this email — share it with your developer and they'll know exactly what to build.",
+    '',
+    `You can also view it online: ${viewUrl}`,
+    '',
+    'Questions, or want Bugbite to update the brief? Reply to this email or write to hello@fixmysite.in.',
+    '',
+    '— fixmysite.in',
+  ].join('\n')
+
+  return send({
+    to: args.to,
+    subject,
+    text,
+    context: 'brief_ready_owner',
+    attachments: [{ filename: args.pdfFilename, content: args.pdfBuffer }],
+  })
+}
+
+// ─── 8. Brief — to developer (CLAUDE.md template 6) ──────────────────
+
+/**
+ * Triggered when an owner uses the "Send to your developer" button on
+ * /brief/[scan_id]/full. Developer gets the PDF attached + a short
+ * peer-to-peer email explaining what they're looking at.
+ *
+ * Tone shifts here per BRAND.md: "Developer-facing | Peer-to-peer,
+ * technical precision OK". The owner-facing template is gentle; this
+ * one assumes the recipient is a freelance developer who reads code
+ * for a living.
+ */
+export async function sendBriefToDeveloper(args: {
+  to: string
+  hostname: string
+  scanUrl: string
+  workItemCount: number
+  pdfBuffer: Buffer
+  pdfFilename: string
+}): Promise<SendResult> {
+  const subject = `Developer brief for ${args.hostname} — from your client`
+  const text = [
+    'Hi,',
+    '',
+    `Your client has shared a website improvement brief for ${args.scanUrl} via fixmysite.in. Bugbite (their scanner) prepared the technical specifications based on your client's plain-language requests.`,
+    '',
+    `${args.workItemCount} work ${
+      args.workItemCount === 1 ? 'item' : 'items'
+    }, ordered by priority. Full PDF attached. Each section includes:`,
+    "  - Your client's original words (so you can quote against intent)",
+    '  - A precise technical spec',
+    '  - A priority + effort estimate',
+    '  - A "not in scope" list at the end so the project stays focused',
+    '',
+    'Questions? Reply to this email or write to hello@fixmysite.in.',
+    '',
+    '— fixmysite.in',
+  ].join('\n')
+
+  return send({
+    to: args.to,
+    subject,
+    text,
+    context: 'brief_send_developer',
+    attachments: [{ filename: args.pdfFilename, content: args.pdfBuffer }],
   })
 }
 

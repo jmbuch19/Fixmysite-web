@@ -437,23 +437,18 @@ function FullReportSections({
 function BriefUpsell({ scanId }: { scanId: string }) {
   return (
     <section className="rounded-xl border-2 border-brand bg-brand-surface p-6">
-      <p className="text-xs font-semibold uppercase tracking-wider text-brand">
-        Going to fix this?
-      </p>
-      <h2 className="mt-2 text-lg font-semibold text-zinc-900">
-        Get a developer brief Bugbite writes for you — ₹99
+      <h2 className="text-lg font-semibold text-zinc-900">
+        Want a detailed brief for your developer?
       </h2>
       <p className="mt-2 text-sm leading-relaxed text-zinc-700">
-        Tell Bugbite what you want done in plain language. Bugbite turns
-        your words into a precise technical brief your developer can quote
-        against — with priority, effort estimates, and a &ldquo;not in
-        scope&rdquo; list so the project stays focused.
+        Bugbite will translate your website improvement ideas into a
+        technical spec your developer can build from. ₹99.
       </p>
       <Link
         href={`/brief/${scanId}`}
         className="mt-4 inline-flex items-center justify-center rounded-lg bg-brand px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-accent"
       >
-        Start your brief →
+        Get Developer Brief →
       </Link>
     </section>
   )
