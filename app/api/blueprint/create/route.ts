@@ -5,7 +5,10 @@ import {
   rateLimit,
   rateLimitResponse,
 } from '@/lib/security/rateLimit'
-import { BUSINESS_TYPES } from '@/lib/blueprint/questions'
+import {
+  BUSINESS_TYPES,
+  normalizeIndianMobile,
+} from '@/lib/blueprint/questions'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -34,16 +37,27 @@ const bodySchema = z.object({
     z.union([z.string(), z.array(z.string())]),
   ),
   free_text: z.string().nullable().optional(),
-  // Owner email — required by Branch 7 client-side, but kept .nullable()
-  // so a partially-filled draft can still persist if the wizard ever
-  // submits early. Format check is permissive (matches client regex).
-  // Session 2's delivery email path will refuse to send if null/invalid.
+  // Identity + reachability — pulled out of `answers` so they land in
+  // typed columns. All kept .nullable() so an early-exit draft still
+  // persists; Session 2's delivery flow refuses to send when the
+  // required ones (email) are missing.
   owner_email: z
     .string()
     .nullable()
     .optional()
     .refine((v) => v == null || EMAIL_RE.test(v), {
       message: 'invalid owner_email',
+    }),
+  owner_name: z.string().nullable().optional(),
+  business_name: z.string().nullable().optional(),
+  // Client already normalises to E.164 (+91XXXXXXXXXX). Re-validate
+  // server-side so a hand-crafted POST can't slip raw digits past us.
+  whatsapp_number: z
+    .string()
+    .nullable()
+    .optional()
+    .refine((v) => v == null || normalizeIndianMobile(v) !== null, {
+      message: 'invalid whatsapp_number',
     }),
 })
 
@@ -94,8 +108,23 @@ export async function POST(req: Request) {
     )
   }
 
-  const { business_type, answers, free_text, owner_email } = parsed.data
+  const {
+    business_type,
+    answers,
+    free_text,
+    owner_email,
+    owner_name,
+    business_name,
+    whatsapp_number,
+  } = parsed.data
   const supabase = createServiceClient()
+
+  // Re-normalise WhatsApp server-side. Zod's refine guaranteed the
+  // value is normalisable; this call gives us the canonical form.
+  const whatsappE164 =
+    whatsapp_number && whatsapp_number.trim().length > 0
+      ? normalizeIndianMobile(whatsapp_number)
+      : null
 
   const { data: inserted, error: insertError } = await supabase
     .from('website_blueprints')
@@ -107,6 +136,13 @@ export async function POST(req: Request) {
         owner_email && owner_email.trim().length > 0
           ? owner_email.trim().toLowerCase()
           : null,
+      owner_name:
+        owner_name && owner_name.trim().length > 0 ? owner_name.trim() : null,
+      business_name:
+        business_name && business_name.trim().length > 0
+          ? business_name.trim()
+          : null,
+      whatsapp_number: whatsappE164,
       // status, payment_status, recommendation, blueprint_json, etc.
       // all use schema defaults. detected_language stays null until
       // Session 2's Claude call fills it.

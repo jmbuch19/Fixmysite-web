@@ -38,14 +38,28 @@ export const BUSINESS_TYPES = [
 export type BusinessType = (typeof BUSINESS_TYPES)[number]['value']
 
 // ─── Question primitives ───────────────────────────────────────────────
+//
+// Every question type carries an optional `dependsOn`: when present,
+// the wizard only renders + validates the question if the referenced
+// question's answer matches one of the listed values. Lets us inline
+// conditional follow-ups inside a branch (e.g. "domain ideas" only
+// shows when domain_status is name_in_mind or need_help) without
+// inflating the branch count past seven.
+
+export type DependsOn = {
+  questionId: string
+  values: readonly string[]
+}
 
 export type RadioQuestion = {
   kind: 'radio'
   id: string
   label: string
+  helper?: string
   options: ReadonlyArray<{ value: string; label: string }>
   // Optional follow-up text input shown when a specific option is picked.
   followUp?: { triggerValue: string; placeholder: string; optional?: boolean }
+  dependsOn?: DependsOn
 }
 
 export type CheckboxQuestion = {
@@ -55,14 +69,18 @@ export type CheckboxQuestion = {
   helper?: string
   options: ReadonlyArray<{ value: string; label: string }>
   minSelected?: number
+  dependsOn?: DependsOn
 }
 
 export type TextQuestion = {
   kind: 'text'
   id: string
   label: string
+  helper?: string
   placeholder?: string
   maxLength?: number
+  minLength?: number
+  dependsOn?: DependsOn
 }
 
 export type TextAreaQuestion = {
@@ -74,6 +92,8 @@ export type TextAreaQuestion = {
   examples?: string[]
   rows?: number
   maxLength?: number
+  minLength?: number
+  dependsOn?: DependsOn
 }
 
 export type EmailQuestion = {
@@ -82,6 +102,20 @@ export type EmailQuestion = {
   label: string
   helper?: string
   placeholder?: string
+  dependsOn?: DependsOn
+}
+
+// Indian-format phone input. Validates +91 / 10-digit / dashed forms
+// and normalises to E.164 (+91XXXXXXXXXX) before submit. Optional flag
+// supports the WhatsApp field — we ask but never block on it.
+export type TelQuestion = {
+  kind: 'tel'
+  id: string
+  label: string
+  helper?: string
+  placeholder?: string
+  optional?: boolean
+  dependsOn?: DependsOn
 }
 
 export type Question =
@@ -90,6 +124,7 @@ export type Question =
   | TextQuestion
   | TextAreaQuestion
   | EmailQuestion
+  | TelQuestion
 
 // ─── Branch 1 ──────────────────────────────────────────────────────────
 
@@ -373,10 +408,53 @@ export const BRANCH_4: { title: string; questions: Question[] } = {
 }
 
 // ─── Branch 5 ──────────────────────────────────────────────────────────
+//
+// "Where your business operates" gathers the geographic + delivery-model
+// context Claude needs to recommend the right kind of site. Business
+// location anchors local-SEO + Indian-vendor recommendations
+// (Hostinger India region, Razorpay vs Stripe, regional language
+// suggestions). Operating mode reshapes the recommendation entirely —
+// a fixed-location clinic and a fully-online consultancy need very
+// different homepages.
 
 export const BRANCH_5: { title: string; questions: Question[] } = {
-  title: 'Where your customers are',
+  title: 'Where your business operates',
   questions: [
+    {
+      kind: 'text',
+      id: 'business_location',
+      label: 'Where is your business based?',
+      placeholder: 'Rajkot, Gujarat',
+      helper:
+        'City + state. If you operate from many places, give the one that feels like base.',
+      maxLength: 100,
+      minLength: 3,
+    },
+    {
+      kind: 'radio',
+      id: 'operating_mode',
+      label: 'How do customers reach your business?',
+      options: [
+        {
+          value: 'fixed_location',
+          label:
+            'Fixed location — customers come to a shop, clinic, or office',
+        },
+        {
+          value: 'on_call',
+          label:
+            'On-call / on-site — you visit customers (home service, field work)',
+        },
+        {
+          value: 'online_only',
+          label: 'Online only — no physical location',
+        },
+        {
+          value: 'hybrid',
+          label: 'Hybrid — mix of in-person and online',
+        },
+      ],
+    },
     {
       kind: 'radio',
       id: 'customer_geography',
@@ -426,6 +504,32 @@ export const BRANCH_6: { title: string; questions: Question[] } = {
       ],
     },
     {
+      kind: 'checkbox',
+      id: 'existing_presence',
+      label: 'What do you already have online?',
+      helper:
+        'Tick everything that applies. Bugbite uses this to consolidate your existing channels — not to add another one on top.',
+      options: [
+        { value: 'google_business', label: 'Google Business Profile' },
+        { value: 'instagram', label: 'Instagram page' },
+        { value: 'facebook', label: 'Facebook page' },
+        { value: 'whatsapp_business', label: 'WhatsApp Business' },
+        { value: 'youtube', label: 'YouTube channel' },
+        {
+          value: 'old_website',
+          label: 'A website I want to replace or update',
+        },
+        {
+          value: 'marketplace_listing',
+          label: 'Listing on JustDial / IndiaMART / Amazon / Flipkart',
+        },
+        { value: 'none', label: 'Nothing yet' },
+      ],
+      // Allow zero — owner who skips this still progresses, but most
+      // will tick something because the prompt is concrete.
+      minSelected: 0,
+    },
+    {
       kind: 'radio',
       id: 'domain_status',
       label: 'Do you have a domain name?',
@@ -438,6 +542,22 @@ export const BRANCH_6: { title: string; questions: Question[] } = {
         triggerValue: 'have',
         placeholder: 'yourbusiness.com',
         optional: true,
+      },
+    },
+    {
+      kind: 'textarea',
+      id: 'domain_ideas',
+      label: 'Got 2–3 names you are considering?',
+      helper:
+        'Bugbite reality-checks each one — availability, .in vs .com trade-off, length, recall — and suggests close alternatives if needed.',
+      placeholder:
+        'rachnainteriors.in\nrachnainteriors.com\nrachnastudio.in',
+      rows: 3,
+      maxLength: 400,
+      minLength: 5,
+      dependsOn: {
+        questionId: 'domain_status',
+        values: ['name_in_mind', 'need_help'],
       },
     },
     {
@@ -488,22 +608,59 @@ export const BRANCH_6: { title: string; questions: Question[] } = {
   ],
 }
 
-// ─── Branch 7 — Open question + contact ───────────────────────────────
+// ─── Branch 7 — Identity, contact, and the open question ──────────────
 //
-// Two fields: the open free-text from SPEC §20 plus an owner_email
-// capture. Email is required because the success card and Session 2's
-// blueprint-ready notification both depend on it. Capturing here at
-// the natural end of the flow (rather than upfront) keeps the wizard
-// feeling like a conversation, not a form.
+// Identity (business_name, owner_name) goes first so the open
+// "tell us in your own words" question lands with a name attached —
+// it makes the writing prompt feel like a conversation instead of
+// a form field. WhatsApp is genuinely optional (helper makes the use
+// case clear); email is required because Session 2's delivery flow
+// depends on it. Free text is last so it acts as the natural exhale
+// of the wizard.
 
 export const BRANCH_7: { title: string; questions: Question[] } = {
-  title: 'In your own words',
+  title: 'About you',
   questions: [
+    {
+      kind: 'text',
+      id: 'business_name',
+      label: 'What is your business called?',
+      placeholder: 'Rachna Interior Design Studio',
+      helper:
+        'The name people search for, or what is on your visiting card. Bugbite uses this throughout the blueprint and any naming suggestions.',
+      maxLength: 120,
+      minLength: 2,
+    },
+    {
+      kind: 'text',
+      id: 'owner_name',
+      label: 'Your name',
+      placeholder: 'How should Bugbite address you?',
+      maxLength: 80,
+      minLength: 2,
+    },
+    {
+      kind: 'tel',
+      id: 'whatsapp_number',
+      label: 'Your WhatsApp number',
+      placeholder: '98765 43210',
+      helper:
+        'Optional. Bugbite uses it only for important blueprint updates — never marketing, never shared. Indian numbers only for now.',
+      optional: true,
+    },
+    {
+      kind: 'email',
+      id: 'owner_email',
+      label: 'Where should Bugbite send your blueprint?',
+      placeholder: 'you@yourbusiness.com',
+      helper:
+        "Bugbite emails you the link as soon as your full blueprint is ready. We never send marketing — just your blueprint and any updates to it.",
+    },
     {
       kind: 'textarea',
       id: 'free_text',
       label:
-        'Tell us about your business in your own words. What do you do, who are your customers, and what is the one thing you most want your website to do for you?',
+        'Anything else Bugbite should know? Tell us about your business in your own words — what you do, who your customers are, and the one thing you most want from a website.',
       placeholder: 'Any language. Any length.',
       helper:
         'Write in English, Hindi, Gujarati, or mixed — Bugbite reads them all.',
@@ -515,17 +672,40 @@ export const BRANCH_7: { title: string; questions: Question[] } = {
       rows: 6,
       maxLength: 5000,
     },
-    {
-      kind: 'email',
-      id: 'owner_email',
-      label: 'Where should Bugbite send your blueprint?',
-      placeholder: 'you@yourbusiness.com',
-      helper:
-        "Bugbite emails you the link as soon as your full blueprint is ready. We never send marketing — just your blueprint and any updates to it.",
-    },
   ],
 }
 
 // ─── Step plan ─────────────────────────────────────────────────────────
 
 export const TOTAL_STEPS = 7
+
+// ─── Helpers ───────────────────────────────────────────────────────────
+
+/**
+ * Returns true when a question is "active" in the current answers
+ * context — either because it has no dependsOn, or because the
+ * referenced answer matches one of the trigger values. The wizard
+ * uses the same predicate for rendering and validation so the two
+ * never disagree.
+ */
+export function isQuestionActive(
+  question: Question,
+  answers: Record<string, string | string[]>,
+): boolean {
+  const dep = question.dependsOn
+  if (!dep) return true
+  const v = answers[dep.questionId]
+  if (typeof v !== 'string') return false
+  return dep.values.includes(v)
+}
+
+// Indian mobile validation. Accepts +91 / 91 / 0 prefix and any
+// combination of spaces or dashes. Returns the E.164 form (+91XXXXXXXXXX)
+// when valid, null otherwise. Used both client-side (to format before
+// submit) and server-side (to validate before persistence) so the
+// stored value is always dial-ready for Twilio / WhatsApp APIs.
+export function normalizeIndianMobile(raw: string): string | null {
+  const cleaned = raw.replace(/[\s\-()]/g, '')
+  const match = cleaned.match(/^(?:\+?91|0)?([6-9]\d{9})$/)
+  return match ? `+91${match[1]}` : null
+}

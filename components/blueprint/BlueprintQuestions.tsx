@@ -10,6 +10,8 @@ import {
   BRANCH_7,
   TOTAL_STEPS,
   getBranch2,
+  isQuestionActive,
+  normalizeIndianMobile,
   type BusinessType,
   type Question,
 } from '@/lib/blueprint/questions'
@@ -27,7 +29,13 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 type SubmitState =
   | { phase: 'idle' }
   | { phase: 'submitting' }
-  | { phase: 'submitted'; blueprintId: string; ownerEmail: string }
+  | {
+      phase: 'submitted'
+      blueprintId: string
+      ownerEmail: string
+      ownerName: string
+      businessName: string
+    }
   | { phase: 'error'; message: string }
 
 /**
@@ -86,9 +94,12 @@ export function BlueprintQuestions() {
   }
 
   // Validation per branch. The wizard refuses to advance until every
-  // required answer on the current branch is satisfied.
+  // required answer on the current branch is satisfied. Questions whose
+  // `dependsOn` predicate is unmet are skipped — they aren't visible
+  // to the owner, so refusing to advance over them would strand them.
   function validateCurrentBranch(): string | null {
     for (const q of branchInfo.questions) {
+      if (!isQuestionActive(q, answers)) continue
       const v = answers[q.id]
       if (q.kind === 'radio') {
         if (typeof v !== 'string' || v.length === 0) {
@@ -112,18 +123,30 @@ export function BlueprintQuestions() {
             : `Pick at least ${min} options to continue.`
         }
       } else if (q.kind === 'text') {
-        // Plain text questions are not used in v1 spec, but support is
-        // here for future branches.
         if (typeof v !== 'string' || v.trim().length === 0) {
           return 'Add a short answer to continue.'
         }
+        const min = q.minLength ?? 0
+        if (v.trim().length < min) {
+          return 'A bit more detail, please — at least a few characters.'
+        }
       } else if (q.kind === 'textarea') {
-        if (typeof v !== 'string' || v.trim().length < 10) {
+        const min = q.minLength ?? 10
+        if (typeof v !== 'string' || v.trim().length < min) {
           return 'Tell Bugbite a little more — at least one sentence.'
         }
       } else if (q.kind === 'email') {
         if (typeof v !== 'string' || !EMAIL_RE.test(v.trim())) {
-          return "Add a valid email — Bugbite sends your blueprint here."
+          return 'Add a valid email — Bugbite sends your blueprint here.'
+        }
+      } else if (q.kind === 'tel') {
+        // Optional WhatsApp: empty is fine. If filled, must be a valid
+        // Indian mobile so we never persist garbage.
+        const trimmed = typeof v === 'string' ? v.trim() : ''
+        if (trimmed.length === 0) {
+          if (!q.optional) return 'Add your WhatsApp number to continue.'
+        } else if (!normalizeIndianMobile(trimmed)) {
+          return 'That doesn\'t look like an Indian mobile number — try 10 digits, optionally with +91.'
         }
       }
     }
@@ -166,15 +189,24 @@ export function BlueprintQuestions() {
 
     setSubmit({ phase: 'submitting' })
 
-    // Pull free_text + owner_email out of the answers map — the API
-    // takes them as top-level fields so the persistence layer can
-    // write them to dedicated columns (free_text, owner_email) for
-    // downstream Claude prompting + delivery email.
+    // Identity + contact fields are pulled out of the answers map so
+    // they can land in dedicated DB columns. Everything else — radio
+    // answers, checkbox arrays, follow-up text, business_location,
+    // operating_mode, existing_presence, domain_ideas — stays inside
+    // the answers JSONB and is read by Claude in Session 2.
     const {
       free_text: freeText,
       owner_email: ownerEmail,
+      owner_name: ownerName,
+      business_name: businessName,
+      whatsapp_number: whatsappNumberRaw,
       ...restAnswers
     } = answers
+
+    const whatsappE164 =
+      typeof whatsappNumberRaw === 'string' && whatsappNumberRaw.trim().length > 0
+        ? normalizeIndianMobile(whatsappNumberRaw.trim())
+        : null
 
     try {
       const res = await fetch('/api/blueprint/create', {
@@ -188,6 +220,10 @@ export function BlueprintQuestions() {
             typeof ownerEmail === 'string'
               ? ownerEmail.trim().toLowerCase()
               : null,
+          owner_name: typeof ownerName === 'string' ? ownerName.trim() : null,
+          business_name:
+            typeof businessName === 'string' ? businessName.trim() : null,
+          whatsapp_number: whatsappE164,
         }),
       })
 
@@ -220,6 +256,9 @@ export function BlueprintQuestions() {
         blueprintId: body.blueprint_id,
         ownerEmail:
           typeof ownerEmail === 'string' ? ownerEmail.trim().toLowerCase() : '',
+        ownerName: typeof ownerName === 'string' ? ownerName.trim() : '',
+        businessName:
+          typeof businessName === 'string' ? businessName.trim() : '',
       })
       if (typeof window !== 'undefined') {
         window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -236,15 +275,27 @@ export function BlueprintQuestions() {
   const submitting = submit.phase === 'submitting'
 
   if (submit.phase === 'submitted') {
+    const greeting = submit.ownerName
+      ? `Thanks, ${submit.ownerName.split(' ')[0]}.`
+      : 'Bugbite has your answers.'
     return (
       <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-6">
-        <h2 className="text-xl font-semibold text-emerald-900">
-          Bugbite has your answers
-        </h2>
+        <h2 className="text-xl font-semibold text-emerald-900">{greeting}</h2>
         <p className="mt-3 text-sm leading-relaxed text-emerald-900">
-          Your blueprint is in the queue. Bugbite is preparing your
-          full website recommendation — what kind of site fits, the
-          right technology, the right budget, and a step-by-step plan.
+          {submit.businessName ? (
+            <>
+              Bugbite is preparing the full website recommendation for{' '}
+              <span className="font-semibold">{submit.businessName}</span>{' '}
+              — what kind of site fits, the right technology, the right
+              budget, and a step-by-step plan.
+            </>
+          ) : (
+            <>
+              Your blueprint is in the queue. Bugbite is preparing your
+              full website recommendation — what kind of site fits, the
+              right technology, the right budget, and a step-by-step plan.
+            </>
+          )}
         </p>
         {submit.ownerEmail ? (
           <p className="mt-3 text-sm leading-relaxed text-emerald-900">
@@ -292,21 +343,23 @@ export function BlueprintQuestions() {
 
       {/* Questions */}
       <div className="mt-8 space-y-8">
-        {branchInfo.questions.map((q) => (
-          <QuestionField
-            key={q.id}
-            question={q}
-            value={getAnswer(q.id)}
-            followUpValue={
-              typeof getAnswer(`${q.id}_other`) === 'string'
-                ? (getAnswer(`${q.id}_other`) as string)
-                : ''
-            }
-            onChange={(v) => setAnswer(q.id, v)}
-            onFollowUpChange={(s) => setAnswer(`${q.id}_other`, s)}
-            disabled={submitting}
-          />
-        ))}
+        {branchInfo.questions
+          .filter((q) => isQuestionActive(q, answers))
+          .map((q) => (
+            <QuestionField
+              key={q.id}
+              question={q}
+              value={getAnswer(q.id)}
+              followUpValue={
+                typeof getAnswer(`${q.id}_other`) === 'string'
+                  ? (getAnswer(`${q.id}_other`) as string)
+                  : ''
+              }
+              onChange={(v) => setAnswer(q.id, v)}
+              onFollowUpChange={(s) => setAnswer(`${q.id}_other`, s)}
+              disabled={submitting}
+            />
+          ))}
       </div>
 
       {/* Error */}
@@ -476,6 +529,9 @@ function QuestionField({
           >
             {question.label}
           </label>
+          {question.helper && (
+            <p className="mt-1 text-xs text-zinc-500">{question.helper}</p>
+          )}
           <input
             id={question.id}
             type="text"
@@ -563,6 +619,40 @@ function QuestionField({
             placeholder={question.placeholder ?? 'you@yourbusiness.com'}
             className="mt-2 w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30 disabled:bg-zinc-50"
           />
+        </div>
+      )
+    }
+
+    case 'tel': {
+      const v = typeof value === 'string' ? value : ''
+      return (
+        <div>
+          <label
+            htmlFor={question.id}
+            className="block text-base font-medium text-zinc-900"
+          >
+            {question.label}
+          </label>
+          {question.helper && (
+            <p className="mt-1 text-xs text-zinc-500">{question.helper}</p>
+          )}
+          <div className="mt-2 flex overflow-hidden rounded-lg border border-zinc-300 bg-white focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/30">
+            <span className="flex select-none items-center border-r border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-500">
+              +91
+            </span>
+            <input
+              id={question.id}
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel-national"
+              value={v}
+              disabled={disabled}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder={question.placeholder ?? '98765 43210'}
+              maxLength={20}
+              className="flex-1 bg-transparent px-4 py-2.5 text-base text-zinc-900 placeholder:text-zinc-400 focus:outline-none disabled:bg-zinc-50"
+            />
+          </div>
         </div>
       )
     }
