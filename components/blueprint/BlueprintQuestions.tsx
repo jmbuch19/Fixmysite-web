@@ -289,34 +289,31 @@ export function BlueprintQuestions() {
         <p className="mt-3 text-sm leading-relaxed text-emerald-900">
           {submit.businessName ? (
             <>
-              Bugbite is preparing the full website recommendation for{' '}
-              <span className="font-semibold">{submit.businessName}</span>{' '}
-              — what kind of site fits, the right technology, the right
-              budget, and a step-by-step plan.
+              Bugbite is now reading your answers and writing the
+              recommendation for{' '}
+              <span className="font-semibold">{submit.businessName}</span>.
             </>
           ) : (
             <>
-              Your blueprint is in the queue. Bugbite is preparing your
-              full website recommendation — what kind of site fits, the
-              right technology, the right budget, and a step-by-step plan.
+              Bugbite is now reading your answers and writing your
+              recommendation.
             </>
           )}
         </p>
-        {submit.ownerEmail ? (
-          <p className="mt-3 text-sm leading-relaxed text-emerald-900">
-            The full blueprint preview lands in the next release. You can
-            close this tab — Bugbite will email{' '}
-            <span className="font-semibold">{submit.ownerEmail}</span>{' '}
-            with the link as soon as it&apos;s ready.
-          </p>
-        ) : (
-          <p className="mt-3 text-sm leading-relaxed text-emerald-900">
-            The full blueprint preview lands in the next release. You can
-            close this tab — Bugbite will email you the link as soon as
-            it&apos;s ready.
+        <a
+          href={`/plan/blueprint/${submit.blueprintId}`}
+          className="mt-5 inline-flex items-center justify-center rounded-lg bg-brand px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-accent"
+        >
+          See your blueprint preview →
+        </a>
+        {submit.ownerEmail && (
+          <p className="mt-4 text-xs leading-relaxed text-emerald-900/80">
+            Bugbite will also email{' '}
+            <span className="font-semibold">{submit.ownerEmail}</span> when
+            the full blueprint is ready.
           </p>
         )}
-        <p className="mt-4 text-xs text-emerald-900/70">
+        <p className="mt-3 text-xs text-emerald-900/60">
           Reference: {submit.blueprintId}
         </p>
       </section>
