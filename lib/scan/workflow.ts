@@ -37,6 +37,7 @@ const GENERIC_SUBMIT_LABELS = new Set([
 
 export type WorkflowCheckKey =
   | 'form_no_destination'
+  | 'form_js_driven'
   | 'upload_no_submit'
   | 'upload_no_rules'
   | 'upload_no_format_hint'
@@ -79,6 +80,13 @@ export function auditWorkflow(
   const findings: WorkflowFinding[] = []
 
   // ─── Forms ───────────────────────────────────────────────────────────
+  // Page-level signal: any <script> tag at all on the rendered HTML.
+  // Used by the JS-driven-form heuristic below — a form lacking the
+  // classical action/method attributes is fine on a modern React /
+  // Vue / Svelte page where submission lives in compiled JavaScript
+  // the scraper cannot read.
+  const pageHasScript = $('script').length > 0
+
   $('form').each((_, form) => {
     const $form = $(form)
     const hasAction = !!$form.attr('action')
@@ -90,14 +98,41 @@ export function auditWorkflow(
     const fields = $form.find('input, select, textarea').length
 
     if (!hasAction || !hasMethod) {
-      findings.push({
-        check: 'form_no_destination',
-        page: pageUrl,
-        priority: 'high',
-        effort: 'low',
-        userImpact:
-          'User fills the form and clicks submit — nothing happens. Their enquiry is lost.',
-      })
+      // JS-driven heuristic: a form with no action/method, but with a
+      // submit-shaped button AND a script tag somewhere on the page,
+      // is overwhelmingly likely to be a React/Vue/Svelte form whose
+      // submission path is bound in JavaScript. Flagging this as
+      // 'fail/high' produces a ~80% false-positive rate on modern
+      // sites — fixmysite.in itself was the canary.
+      //
+      // Browsers also default <button> inside a form to type="submit",
+      // so a bare <button> without an explicit type counts as a submit
+      // signal too.
+      const hasSubmitButton =
+        $form.find(
+          'button[type="submit"], button:not([type]), input[type="submit"]',
+        ).length > 0
+      const isJsDriven = hasSubmitButton && pageHasScript
+
+      if (isJsDriven) {
+        findings.push({
+          check: 'form_js_driven',
+          page: pageUrl,
+          priority: 'low',
+          effort: 'low',
+          userImpact:
+            'Form uses JavaScript submission — Bugbite could not verify the destination automatically. Test it yourself by submitting and confirming the message reaches you.',
+        })
+      } else {
+        findings.push({
+          check: 'form_no_destination',
+          page: pageUrl,
+          priority: 'high',
+          effort: 'low',
+          userImpact:
+            'User fills the form and clicks submit — nothing happens. Their enquiry is lost.',
+        })
+      }
     }
 
     if (fileInputs.length > 0 && !hasSubmit) {
@@ -287,6 +322,8 @@ function workflowAction(check: WorkflowCheckKey): string {
   switch (check) {
     case 'form_no_destination':
       return "Set the form's submission destination — your developer can fix this in minutes."
+    case 'form_js_driven':
+      return 'Submit the form yourself and confirm you receive the enquiry — Bugbite cannot verify JavaScript-driven submissions automatically.'
     case 'upload_no_submit':
       return 'Add a clearly labelled upload or submit button next to the file field.'
     case 'upload_no_rules':

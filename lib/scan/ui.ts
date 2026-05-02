@@ -83,6 +83,14 @@ export function analyseUIQuality(
   // We're deliberately permissive — any 10-digit run or +91 prefix counts.
   // False positives (a date, an order number) are acceptable; the cost of
   // missing a real phone in the header is higher.
+  //
+  // TODO v1.1: gate this check on business type. Skip for SaaS,
+  // e-commerce, B2B, and digital products — they don't expect phone in
+  // header and emailing is the norm. Run for clinics, restaurants,
+  // shops, and other fixed-location businesses where a missing phone
+  // genuinely loses customers. Requires the business-type detector to
+  // run before UI checks (today it's a separate Claude call inside the
+  // brief flow only).
   const headerText = $('header').first().text().toLowerCase()
   const hasPhoneInHeader = /\d{10}|\+91/.test(headerText)
   if (!hasPhoneInHeader) {

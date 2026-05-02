@@ -45,6 +45,38 @@ const PLACEHOLDER_PATTERNS: ReadonlyArray<{
   { regex: /under\s+construction/i, bucket: 'under_construction' },
 ]
 
+// ─── Meta-mention guard ────────────────────────────────────────────────
+//
+// Marketing copy, blog posts, and feature descriptions routinely MENTION
+// "lorem ipsum" or "placeholder text" as a CONCEPT — fixmysite.in's own
+// homepage was the canary: a card body reading "Bugbite spots lorem
+// ipsum, 'coming soon' pages, and leftover sample text" was getting
+// flagged as if it were real placeholder content.
+//
+// Two layers of defence:
+//   1. Skip whole HTML containers that are obviously meta-content (code
+//      samples, demo blocks, anything with class hints like "feature",
+//      "card", "description", "example", "demo"). Removed before text
+//      extraction so the match never even surfaces.
+//   2. After a match in surviving body text, check the 60 characters
+//      immediately before for verbs that frame the match as meta-mention
+//      ("spots", "detects", "looks for", etc.) or for unbalanced quote
+//      marks suggesting we're inside a quoted concept.
+//
+// Both checks are intentionally conservative — "leftover sample text"
+// in a clinic owner's homepage will still fire (no meta-verb, no
+// quotes), and a dev who genuinely shipped lorem ipsum inside a class
+// named .card will still get caught by other detectors on the same page.
+
+const META_MENTION_VERBS =
+  /\b(?:spots?|detects?|finds?|catches?|identifies?|identify|flags?|checks?|looks?\s+for|looking\s+for|searches?\s+for|recognises?|recognizes?|spotting|detecting|finding|catching|matching|matches|matched)\b/i
+
+// Class-name hints that mark a container as meta-content rather than
+// real visitor-facing copy. We strip whole elements before extracting
+// body text so a match inside them is never even considered.
+const META_CONTAINER_SELECTOR =
+  'code, pre, [class*="feature"], [class*="card"], [class*="description"], [class*="example"], [class*="demo"]'
+
 // ─── Public types ──────────────────────────────────────────────────────
 
 export type PlaceholderFinding = {
@@ -79,15 +111,36 @@ export function detectPlaceholderText(
   html: string,
   pageUrl: string,
 ): PlaceholderFinding[] {
-  const text = stripHtmlToText(html)
-  const wordCount = countWords(text)
+  // Word count is taken from the FULL stripped text (no meta-container
+  // exclusion) because the COMING_SOON gate measures "is this page
+  // genuinely empty?" — a card-class container that contains real copy
+  // shouldn't downgrade that signal.
+  const fullText = stripHtmlToText(html, { excludeMetaContainers: false })
+  const wordCount = countWords(fullText)
+
+  // Match-search runs against text WITH meta-containers excluded so we
+  // never even see a mention inside a feature description, code block,
+  // or example card.
+  const eligibleText = stripHtmlToText(html, { excludeMetaContainers: true })
+
   const findings: PlaceholderFinding[] = []
   const seenBuckets = new Set<string>()
 
   for (const { regex, bucket, gateBelowWords } of PLACEHOLDER_PATTERNS) {
-    const match = regex.exec(text)
+    const match = regex.exec(eligibleText)
     if (!match || match.index === undefined) continue
     if (gateBelowWords !== undefined && wordCount >= gateBelowWords) continue
+
+    // Negative-context check: skip matches that look like meta-mentions
+    // ("Bugbite spots lorem ipsum...") rather than real placeholder
+    // content. Cheap heuristic on the 60 chars immediately before the
+    // match — verb-frame OR unbalanced straight-quote count.
+    const contextBefore = eligibleText.slice(
+      Math.max(0, match.index - 60),
+      match.index,
+    )
+    if (isMetaMention(contextBefore)) continue
+
     // Only one finding per bucket per page — multiple lorem-ipsum hits
     // on the same page tell the report nothing extra and just inflate
     // issue count.
@@ -99,7 +152,7 @@ export function detectPlaceholderText(
     const end = match.index + matchedText.length + 40
     findings.push({
       pattern: matchedText,
-      context: text.slice(start, end).trim(),
+      context: eligibleText.slice(start, end).trim(),
       pageUrl,
     })
   }
@@ -137,15 +190,46 @@ export function detectThinContent(
 
 // ─── Internal helpers ──────────────────────────────────────────────────
 
-function stripHtmlToText(html: string): string {
+function stripHtmlToText(
+  html: string,
+  opts: { excludeMetaContainers?: boolean } = {},
+): string {
   const $ = cheerio.load(html)
   $('script, style, noscript, template').remove()
+  if (opts.excludeMetaContainers) {
+    $(META_CONTAINER_SELECTOR).remove()
+  }
   return $('body').text().replace(/\s+/g, ' ').trim()
 }
 
 function countWords(text: string): number {
   if (!text) return 0
   return text.split(/\s+/).filter(Boolean).length
+}
+
+/**
+ * True when the 60-char window before a placeholder-pattern match looks
+ * like a meta-mention ("Bugbite spots lorem ipsum...") rather than real
+ * placeholder content the developer forgot to remove.
+ *
+ * Two cheap signals:
+ *   - A meta-mention verb appears in the window (spots, detects, looks
+ *     for, identifies, etc.) — the match is being framed as a CONCEPT.
+ *   - Odd parity of straight quote chars in the window — we are likely
+ *     inside an open quote that has not closed yet, e.g. `"lorem ipsum"`
+ *     used as a quoted-name reference in marketing copy.
+ *
+ * Both heuristics err toward false negatives (allowing through a real
+ * placeholder) over false positives (flagging marketing copy). A real
+ * lorem-ipsum bug usually appears in long body paragraphs without
+ * either signal nearby — those still fire.
+ */
+function isMetaMention(contextBefore: string): boolean {
+  if (META_MENTION_VERBS.test(contextBefore)) return true
+  const window = contextBefore.slice(-60)
+  const straightQuotes = (window.match(/["']/g) ?? []).length
+  if (straightQuotes % 2 === 1) return true
+  return false
 }
 
 // ─── Page fetcher ──────────────────────────────────────────────────────
