@@ -390,6 +390,20 @@ export function BlueprintPaymentGate({
         One-time payment. PDF download included. No subscription.
       </p>
 
+      {/* International disclaimer. fixmysite.in is India-first by
+          design — Claude blueprint recommends Indian vendors per
+          CLAUDE.md rule 70 (Razorpay, Hostinger India, BigRock,
+          Truelancer, etc.). The line collapses the trust gap for a
+          non-IN visitor before they pay. Currency display + true
+          regional support tracked separately — see
+          memory/international_rollout_plan.md. */}
+      <p className="mt-4 border-t border-white/10 pt-3 text-xs italic leading-relaxed text-white/50">
+        fixmysite.in is built for Indian businesses. International
+        customers are welcome — recommendations include Indian vendors
+        (Hostinger India, Razorpay, Truelancer) that may not apply
+        where you are.
+      </p>
+
       {state.phase === 'failed' && (
         <p
           className={`mt-3 text-sm ${state.supportable ? 'text-red-300' : 'text-amber-300'}`}
