@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { verifyWebhookSignature } from '@/lib/razorpay/client'
 import { enqueuePhase2 } from '@/lib/queue/qstash'
+import { sendBlueprintReadyEmailBestEffort } from '@/lib/blueprint/sendReadyEmail'
 
 export const runtime = 'nodejs'
 
@@ -128,10 +129,19 @@ async function handlePaymentSucceeded(event: RazorpayWebhook): Promise<Response>
   }
 
   if (!scan) {
-    // Order not in our DB — likely a different env (test vs prod), or
-    // a pre-DB scan that was deleted. Acknowledge so Razorpay stops
-    // retrying; there is nothing to do.
-    console.warn('[webhook] no scan for order_id', {
+    // Order not in scans — could belong to a blueprint. Try the
+    // website_blueprints table next. Same safety-net pattern: if
+    // /api/blueprint/payment/verify never reached us (cold start, tab
+    // closed mid-flight), the webhook is the second chance to flip the
+    // row + fire the auto-email. Without this, paying customers can
+    // sit in 'unpaid' state forever.
+    const blueprintResult = await tryHandleBlueprintPayment(payment)
+    if (blueprintResult) return blueprintResult
+
+    // Order not in either products' DB — likely a different env
+    // (test vs prod), or a deleted pre-DB row. Acknowledge so Razorpay
+    // stops retrying; there is nothing to do.
+    console.warn('[webhook] no scan or blueprint for order_id', {
       event: event.event,
       order_id: payment.order_id,
       payment_id: payment.id,
@@ -187,5 +197,78 @@ async function handlePaymentSucceeded(event: RazorpayWebhook): Promise<Response>
     processed: true,
     event: event.event,
     queued: enq.ok,
+  })
+}
+
+/**
+ * Blueprint safety-net path. Mirrors handlePaymentSucceeded for scans
+ * but writes to website_blueprints + fires the blueprint auto-email
+ * helper instead of enqueuing Phase 2 (blueprints have no background
+ * job — just an email).
+ *
+ * Returns null when no blueprint matches the order_id, letting the
+ * caller fall through to its "unknown_order" response. Returns a Response
+ * when the blueprint was found and processed (paid or already_paid).
+ */
+async function tryHandleBlueprintPayment(payment: {
+  id: string
+  order_id: string
+}): Promise<Response | null> {
+  const supabase = createServiceClient()
+  const { data: row, error: loadError } = await supabase
+    .from('website_blueprints')
+    .select('id, payment_status')
+    .eq('razorpay_order_id', payment.order_id)
+    .maybeSingle()
+
+  if (loadError) {
+    console.error('[webhook] DB error looking up blueprint by order_id', {
+      order_id: payment.order_id,
+      error: loadError.message,
+    })
+    return new Response('Database error', { status: 500 })
+  }
+
+  if (!row) return null
+
+  if (row.payment_status === 'paid') {
+    // /verify or an earlier webhook already flipped this row.
+    return Response.json({
+      received: true,
+      already_paid: true,
+      kind: 'blueprint',
+    })
+  }
+
+  const { error: updateError } = await supabase
+    .from('website_blueprints')
+    .update({
+      payment_status: 'paid',
+      payment_id: payment.id,
+      status: 'paid',
+    })
+    .eq('id', row.id)
+
+  if (updateError) {
+    console.error('[webhook] failed to update blueprint to paid', {
+      blueprint_id: row.id,
+      payment_id: payment.id,
+      error: updateError.message,
+    })
+    return new Response('Database update failed', { status: 500 })
+  }
+
+  // Fire the auto-email — same helper /verify uses, so the email lands
+  // exactly once per payment regardless of which writer flipped the row.
+  await sendBlueprintReadyEmailBestEffort({
+    blueprintId: row.id,
+    callerTag: 'webhook/blueprint-email',
+  })
+
+  return Response.json({
+    received: true,
+    processed: true,
+    kind: 'blueprint',
+    blueprint_id: row.id,
   })
 }

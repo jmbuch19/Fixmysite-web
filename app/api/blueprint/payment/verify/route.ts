@@ -6,13 +6,7 @@ import {
   rateLimit,
   rateLimitResponse,
 } from '@/lib/security/rateLimit'
-import {
-  buildBlueprintPdfFilename,
-  generateBlueprintPdf,
-} from '@/lib/pdf/blueprintGenerator'
-import { sendBlueprintReadyToOwner } from '@/lib/email/sender'
-import { resolveAppUrl } from '@/lib/queue/qstash'
-import type { BlueprintOutput } from '@/lib/claude/blueprint'
+import { sendBlueprintReadyEmailBestEffort } from '@/lib/blueprint/sendReadyEmail'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -168,112 +162,15 @@ export async function POST(req: Request) {
   // but still return ok=true. The owner can always download manually
   // from the action bar on /full — Bugbite never pretends an email
   // succeeded that didn't.
-  await sendBlueprintReadyEmailBestEffort({ blueprintId: row.id })
-
-  return Response.json({ ok: true, blueprint_id: row.id })
-}
-
-/**
- * Render the PDF + email it to the owner. All failure paths log
- * structured warnings + return — never throw. Caller awaits this so
- * the verify response only completes after the email attempt finishes
- * (otherwise the function could be killed before the send fires).
- */
-async function sendBlueprintReadyEmailBestEffort(args: {
-  blueprintId: string
-}): Promise<void> {
-  const supabase = createServiceClient()
-  const { data: row } = await supabase
-    .from('website_blueprints')
-    .select(
-      'id, business_name, owner_email, blueprint_json, completed_at, created_at',
-    )
-    .eq('id', args.blueprintId)
-    .maybeSingle()
-
-  if (!row) {
-    console.error('[blueprint/verify-email] row vanished after update', {
-      blueprint_id: args.blueprintId,
-    })
-    return
-  }
-  if (!row.blueprint_json) {
-    console.error('[blueprint/verify-email] paid row has null blueprint_json', {
-      blueprint_id: args.blueprintId,
-    })
-    return
-  }
-  if (!row.owner_email) {
-    console.warn(
-      '[blueprint/verify-email] no owner_email on file — skipping auto-send',
-      { blueprint_id: args.blueprintId },
-    )
-    return
-  }
-
-  const blueprintJson = row.blueprint_json as BlueprintOutput
-
-  let pdfBuffer: Buffer
-  try {
-    pdfBuffer = await generateBlueprintPdf({
-      blueprint: blueprintJson,
-      meta: {
-        blueprintId: row.id,
-        businessName: row.business_name ?? null,
-        ownerName: null,
-        paidAt: new Date().toISOString(),
-      },
-    })
-  } catch (err) {
-    console.error('[blueprint/verify-email] PDF render failed', {
-      blueprint_id: row.id,
-      error: err instanceof Error ? err.message : err,
-    })
-    return
-  }
-
-  const filename = buildBlueprintPdfFilename(
-    row.business_name ?? null,
-    row.id,
-    row.created_at,
-  )
-  const appUrl = resolveAppUrl() ?? 'https://fixmysite.in'
-
-  const sendResult = await sendBlueprintReadyToOwner({
-    to: row.owner_email,
-    businessName: row.business_name ?? null,
+  //
+  // The same helper fires from the Razorpay webhook safety-net path
+  // when /verify never reaches us (cold start, tab closed mid-flight).
+  // Both writers gate on payment_status, so the email lands at most
+  // once per payment regardless of which path flipped the row.
+  await sendBlueprintReadyEmailBestEffort({
     blueprintId: row.id,
-    appUrl,
-    recommendationLabel: blueprintJson.recommendation_label,
-    pdfBuffer,
-    pdfFilename: filename,
+    callerTag: 'blueprint/verify-email',
   })
 
-  if (!sendResult.ok) {
-    console.error('[blueprint/verify-email] Resend send failed', {
-      blueprint_id: row.id,
-      owner_email: row.owner_email,
-      reason: sendResult.reason,
-      error: sendResult.error,
-    })
-    return
-  }
-
-  // Mark completed_at + status='complete' so admin panel + future logic
-  // can see this blueprint already had its owner email delivered.
-  // Best-effort — if the UPDATE fails the email still went, we just
-  // lose the audit trail.
-  const { error: updateError } = await supabase
-    .from('website_blueprints')
-    .update({
-      completed_at: new Date().toISOString(),
-      status: 'complete',
-    })
-    .eq('id', row.id)
-  if (updateError) {
-    console.error(
-      '[blueprint/verify-email] completed_at update failed (email sent OK)',
-      { blueprint_id: row.id, error: updateError.message },
-    )
-  }
+  return Response.json({ ok: true, blueprint_id: row.id })
 }

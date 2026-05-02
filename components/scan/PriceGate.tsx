@@ -375,6 +375,17 @@ export function PriceGate({
           {buttonLabel}
         </button>
       )}
+      {/* International disclaimer — same line shipped on the blueprint
+          unlock card. India-first by design; this collapses the trust
+          gap before a non-IN visitor pays. See
+          memory/international_rollout_plan.md for the full plan. */}
+      <p className="mt-4 border-t border-zinc-200 pt-3 text-xs italic leading-relaxed text-zinc-500">
+        fixmysite.in is built for Indian businesses. International
+        customers are welcome — recommendations include Indian vendors
+        (Hostinger India, Razorpay, Truelancer) that may not apply
+        where you are.
+      </p>
+
       {state.phase === 'failed' && (
         <p
           className={`mt-3 text-sm ${state.supportable ? 'text-red-700' : 'text-amber-700'}`}
