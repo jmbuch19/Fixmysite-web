@@ -93,6 +93,11 @@ export type TextAreaQuestion = {
   rows?: number
   maxLength?: number
   minLength?: number
+  // When true, an empty value is accepted; if the owner does write
+  // something it's still subject to minLength. Conditional follow-ups
+  // ("share if you have anything") use this so they read as invitations
+  // rather than gates.
+  optional?: boolean
   dependsOn?: DependsOn
 }
 
@@ -547,17 +552,21 @@ export const BRANCH_6: { title: string; questions: Question[] } = {
     {
       kind: 'textarea',
       id: 'domain_ideas',
-      label: 'Got 2–3 names you are considering?',
+      label: 'Share the names you have in mind (optional)',
       helper:
-        'Bugbite reality-checks each one — availability, .in vs .com trade-off, length, recall — and suggests close alternatives if needed.',
+        'Two or three is plenty. Bugbite reality-checks each one — availability, .in vs .com trade-off, length, recall — and suggests close alternatives if needed. Skip if you are still gathering thoughts.',
       placeholder:
         'rachnainteriors.in\nrachnainteriors.com\nrachnastudio.in',
       rows: 3,
       maxLength: 400,
       minLength: 5,
+      optional: true,
+      // Only ask when the owner actually has names. "Need help choosing"
+      // means they have nothing yet — Claude will suggest names in
+      // Session 2, no point asking here.
       dependsOn: {
         questionId: 'domain_status',
-        values: ['name_in_mind', 'need_help'],
+        values: ['name_in_mind'],
       },
     },
     {

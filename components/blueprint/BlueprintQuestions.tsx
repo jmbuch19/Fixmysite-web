@@ -131,8 +131,13 @@ export function BlueprintQuestions() {
           return 'A bit more detail, please — at least a few characters.'
         }
       } else if (q.kind === 'textarea') {
+        const trimmed = typeof v === 'string' ? v.trim() : ''
+        // Optional textareas: empty is fine. If the owner did type
+        // something, still apply minLength so we never persist a
+        // single-character "a" by accident.
+        if (q.optional && trimmed.length === 0) continue
         const min = q.minLength ?? 10
-        if (typeof v !== 'string' || v.trim().length < min) {
+        if (trimmed.length < min) {
           return 'Tell Bugbite a little more — at least one sentence.'
         }
       } else if (q.kind === 'email') {
