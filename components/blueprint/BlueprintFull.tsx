@@ -83,7 +83,7 @@ export function BlueprintFull({ blueprintId }: { blueprintId: string }) {
   }, [blueprintId, router])
 
   if (state.phase === 'loading' || state.phase === 'redirecting') {
-    return <Loader />
+    return <Loader phase={state.phase} />
   }
   if (state.phase === 'error') {
     return (
@@ -107,15 +107,28 @@ export function BlueprintFull({ blueprintId }: { blueprintId: string }) {
 
 // ─── Loader ────────────────────────────────────────────────────────────
 
-function Loader() {
+function Loader({ phase }: { phase: 'loading' | 'redirecting' }) {
+  // Owners arriving here have just paid ₹99 — the moment deserves more
+  // than a generic spinner. Lead with a payment-confirmed badge so they
+  // see the money landed before the content loads, then a Bugbite-voiced
+  // line so the page feels continuous with the gate's "unlocking…" copy.
+  const message =
+    phase === 'redirecting'
+      ? 'Bugbite is sending you to the right place…'
+      : 'Bugbite is unlocking your blueprint…'
+
   return (
-    <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-8 text-center">
+    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-8 text-center">
+      <span className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white">
+        <span aria-hidden>✓</span>
+        Payment confirmed
+      </span>
       <div
         aria-hidden
-        className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-zinc-200 border-t-brand"
+        className="mx-auto mt-5 h-8 w-8 animate-spin rounded-full border-2 border-emerald-200 border-t-brand"
       />
-      <p className="mt-4 text-sm leading-relaxed text-zinc-700">
-        Loading your blueprint…
+      <p className="mt-4 text-sm leading-relaxed text-emerald-900">
+        {message}
       </p>
     </div>
   )

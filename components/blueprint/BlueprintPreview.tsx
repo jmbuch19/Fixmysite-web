@@ -196,7 +196,7 @@ function Loader({ phase }: { phase: 'loading' | 'generating' }) {
   const message =
     phase === 'generating'
       ? 'Bugbite is reading your answers and writing your blueprint. This takes about 15 seconds.'
-      : 'Loading your blueprint…'
+      : 'Bugbite is opening your blueprint…'
   return (
     <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-8 text-center">
       <div
