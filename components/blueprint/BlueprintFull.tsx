@@ -35,10 +35,15 @@ export function BlueprintFull({ blueprintId }: { blueprintId: string }) {
   const startedRef = useRef(false)
 
   useEffect(() => {
+    // startedRef alone is enough to dedupe React StrictMode's dev
+    // double-invocation. We deliberately do NOT pair it with a
+    // `cancelled` flag — the StrictMode cleanup would flip the flag
+    // before the first effect's fetch resolves, the second effect is
+    // rejected by startedRef, and setState would be skipped forever
+    // (spinner stuck). React 18+ tolerates setState on an "unmounted"
+    // tree, so just letting setState fire is the safer pattern.
     if (startedRef.current) return
     startedRef.current = true
-
-    let cancelled = false
 
     async function load() {
       try {
@@ -49,7 +54,6 @@ export function BlueprintFull({ blueprintId }: { blueprintId: string }) {
           throw new Error(`fetch ${res.status}`)
         }
         const data = (await res.json()) as BlueprintGetResponse
-        if (cancelled) return
 
         if (!data.full) {
           // Either not paid, not generated yet, or vanished. The preview
@@ -67,20 +71,15 @@ export function BlueprintFull({ blueprintId }: { blueprintId: string }) {
           blueprint: data.full,
         })
       } catch {
-        if (!cancelled) {
-          setState({
-            phase: 'error',
-            message:
-              'Could not load your blueprint. Refresh in a moment, or email hello@fixmysite.in.',
-          })
-        }
+        setState({
+          phase: 'error',
+          message:
+            'Could not load your blueprint. Refresh in a moment, or email hello@fixmysite.in.',
+        })
       }
     }
 
     load()
-    return () => {
-      cancelled = true
-    }
   }, [blueprintId, router])
 
   if (state.phase === 'loading' || state.phase === 'redirecting') {

@@ -47,15 +47,19 @@ export function BlueprintPreview({ blueprintId }: { blueprintId: string }) {
   const startedRef = useRef(false)
 
   useEffect(() => {
+    // startedRef alone is enough to dedupe React StrictMode's dev
+    // double-invocation. We deliberately do NOT pair it with a
+    // `cancelled` flag — the StrictMode cleanup would flip the flag
+    // before the first effect's fetch resolves, the second effect is
+    // rejected by startedRef, and setState would be skipped forever
+    // (spinner stuck). React 18+ tolerates setState on an "unmounted"
+    // tree, so just letting setState fire is the safer pattern.
     if (startedRef.current) return
     startedRef.current = true
-
-    let cancelled = false
 
     async function run() {
       try {
         const initial = await fetchBlueprint(blueprintId)
-        if (cancelled) return
 
         // Already paid? Skip the preview entirely — the owner has
         // unlocked the full blueprint, send them straight to it.
@@ -67,7 +71,6 @@ export function BlueprintPreview({ blueprintId }: { blueprintId: string }) {
         if (initial.status === 'draft' || !initial.preview) {
           setState({ phase: 'generating' })
           const generated = await generateBlueprint(blueprintId)
-          if (cancelled) return
           if (!generated.ok) {
             setState({ phase: 'error', message: generated.message })
             return
@@ -76,20 +79,17 @@ export function BlueprintPreview({ blueprintId }: { blueprintId: string }) {
           // the blueprint directly but we re-read so payment_status,
           // business_name etc. all come from one source of truth.
           const refreshed = await fetchBlueprint(blueprintId)
-          if (cancelled) return
           settleReady(refreshed)
           return
         }
 
         settleReady(initial)
       } catch {
-        if (!cancelled) {
-          setState({
-            phase: 'error',
-            message:
-              'Could not reach our server. Check your internet and refresh the page.',
-          })
-        }
+        setState({
+          phase: 'error',
+          message:
+            'Could not reach our server. Check your internet and refresh the page.',
+        })
       }
     }
 
@@ -113,10 +113,6 @@ export function BlueprintPreview({ blueprintId }: { blueprintId: string }) {
     }
 
     run()
-
-    return () => {
-      cancelled = true
-    }
   }, [blueprintId, router])
 
   if (state.phase === 'loading' || state.phase === 'generating') {
