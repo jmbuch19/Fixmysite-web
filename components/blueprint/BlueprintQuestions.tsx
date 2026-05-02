@@ -22,10 +22,12 @@ import {
 type AnswerValue = string | string[]
 type Answers = Record<string, AnswerValue>
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 type SubmitState =
   | { phase: 'idle' }
   | { phase: 'submitting' }
-  | { phase: 'submitted'; blueprintId: string }
+  | { phase: 'submitted'; blueprintId: string; ownerEmail: string }
   | { phase: 'error'; message: string }
 
 /**
@@ -119,6 +121,10 @@ export function BlueprintQuestions() {
         if (typeof v !== 'string' || v.trim().length < 10) {
           return 'Tell Bugbite a little more — at least one sentence.'
         }
+      } else if (q.kind === 'email') {
+        if (typeof v !== 'string' || !EMAIL_RE.test(v.trim())) {
+          return "Add a valid email — Bugbite sends your blueprint here."
+        }
       }
     }
     return null
@@ -160,10 +166,15 @@ export function BlueprintQuestions() {
 
     setSubmit({ phase: 'submitting' })
 
-    // Pull free_text out of the answers map — the API takes it as a
-    // top-level field so the persistence layer can write it to the
-    // dedicated `free_text` column for downstream Claude prompting.
-    const { free_text: freeText, ...restAnswers } = answers
+    // Pull free_text + owner_email out of the answers map — the API
+    // takes them as top-level fields so the persistence layer can
+    // write them to dedicated columns (free_text, owner_email) for
+    // downstream Claude prompting + delivery email.
+    const {
+      free_text: freeText,
+      owner_email: ownerEmail,
+      ...restAnswers
+    } = answers
 
     try {
       const res = await fetch('/api/blueprint/create', {
@@ -173,6 +184,10 @@ export function BlueprintQuestions() {
           business_type: businessType ?? null,
           answers: restAnswers,
           free_text: typeof freeText === 'string' ? freeText : null,
+          owner_email:
+            typeof ownerEmail === 'string'
+              ? ownerEmail.trim().toLowerCase()
+              : null,
         }),
       })
 
@@ -200,7 +215,12 @@ export function BlueprintQuestions() {
       // we render a self-contained success card so the owner sees
       // confirmation that submit worked. The blueprint_id is shown
       // so testers can cross-reference the Supabase row.
-      setSubmit({ phase: 'submitted', blueprintId: body.blueprint_id })
+      setSubmit({
+        phase: 'submitted',
+        blueprintId: body.blueprint_id,
+        ownerEmail:
+          typeof ownerEmail === 'string' ? ownerEmail.trim().toLowerCase() : '',
+      })
       if (typeof window !== 'undefined') {
         window.scrollTo({ top: 0, behavior: 'smooth' })
       }
@@ -226,11 +246,20 @@ export function BlueprintQuestions() {
           full website recommendation — what kind of site fits, the
           right technology, the right budget, and a step-by-step plan.
         </p>
-        <p className="mt-3 text-sm leading-relaxed text-emerald-900">
-          The full blueprint preview lands in the next release. You can
-          close this tab — Bugbite will email you the link as soon as
-          it&apos;s ready.
-        </p>
+        {submit.ownerEmail ? (
+          <p className="mt-3 text-sm leading-relaxed text-emerald-900">
+            The full blueprint preview lands in the next release. You can
+            close this tab — Bugbite will email{' '}
+            <span className="font-semibold">{submit.ownerEmail}</span>{' '}
+            with the link as soon as it&apos;s ready.
+          </p>
+        ) : (
+          <p className="mt-3 text-sm leading-relaxed text-emerald-900">
+            The full blueprint preview lands in the next release. You can
+            close this tab — Bugbite will email you the link as soon as
+            it&apos;s ready.
+          </p>
+        )}
         <p className="mt-4 text-xs text-emerald-900/70">
           Reference: {submit.blueprintId}
         </p>
@@ -506,6 +535,34 @@ function QuestionField({
               </ul>
             </div>
           )}
+        </div>
+      )
+    }
+
+    case 'email': {
+      const v = typeof value === 'string' ? value : ''
+      return (
+        <div>
+          <label
+            htmlFor={question.id}
+            className="block text-base font-medium text-zinc-900"
+          >
+            {question.label}
+          </label>
+          {question.helper && (
+            <p className="mt-1 text-xs text-zinc-500">{question.helper}</p>
+          )}
+          <input
+            id={question.id}
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            value={v}
+            disabled={disabled}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={question.placeholder ?? 'you@yourbusiness.com'}
+            className="mt-2 w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30 disabled:bg-zinc-50"
+          />
         </div>
       )
     }

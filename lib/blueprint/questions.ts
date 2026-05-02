@@ -76,11 +76,20 @@ export type TextAreaQuestion = {
   maxLength?: number
 }
 
+export type EmailQuestion = {
+  kind: 'email'
+  id: string
+  label: string
+  helper?: string
+  placeholder?: string
+}
+
 export type Question =
   | RadioQuestion
   | CheckboxQuestion
   | TextQuestion
   | TextAreaQuestion
+  | EmailQuestion
 
 // ─── Branch 1 ──────────────────────────────────────────────────────────
 
@@ -479,9 +488,15 @@ export const BRANCH_6: { title: string; questions: Question[] } = {
   ],
 }
 
-// ─── Branch 7 — Open question ──────────────────────────────────────────
+// ─── Branch 7 — Open question + contact ───────────────────────────────
+//
+// Two fields: the open free-text from SPEC §20 plus an owner_email
+// capture. Email is required because the success card and Session 2's
+// blueprint-ready notification both depend on it. Capturing here at
+// the natural end of the flow (rather than upfront) keeps the wizard
+// feeling like a conversation, not a form.
 
-export const BRANCH_7: { title: string; questions: TextAreaQuestion[] } = {
+export const BRANCH_7: { title: string; questions: Question[] } = {
   title: 'In your own words',
   questions: [
     {
@@ -499,6 +514,14 @@ export const BRANCH_7: { title: string; questions: TextAreaQuestion[] } = {
       ],
       rows: 6,
       maxLength: 5000,
+    },
+    {
+      kind: 'email',
+      id: 'owner_email',
+      label: 'Where should Bugbite send your blueprint?',
+      placeholder: 'you@yourbusiness.com',
+      helper:
+        "Bugbite emails you the link as soon as your full blueprint is ready. We never send marketing — just your blueprint and any updates to it.",
     },
   ],
 }

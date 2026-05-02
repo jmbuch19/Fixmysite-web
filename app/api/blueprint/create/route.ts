@@ -14,6 +14,8 @@ const BUSINESS_TYPE_VALUES = new Set<string>(
   BUSINESS_TYPES.map((t) => t.value),
 )
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 const bodySchema = z.object({
   business_type: z
     .string()
@@ -32,6 +34,17 @@ const bodySchema = z.object({
     z.union([z.string(), z.array(z.string())]),
   ),
   free_text: z.string().nullable().optional(),
+  // Owner email — required by Branch 7 client-side, but kept .nullable()
+  // so a partially-filled draft can still persist if the wizard ever
+  // submits early. Format check is permissive (matches client regex).
+  // Session 2's delivery email path will refuse to send if null/invalid.
+  owner_email: z
+    .string()
+    .nullable()
+    .optional()
+    .refine((v) => v == null || EMAIL_RE.test(v), {
+      message: 'invalid owner_email',
+    }),
 })
 
 /**
@@ -81,7 +94,7 @@ export async function POST(req: Request) {
     )
   }
 
-  const { business_type, answers, free_text } = parsed.data
+  const { business_type, answers, free_text, owner_email } = parsed.data
   const supabase = createServiceClient()
 
   const { data: inserted, error: insertError } = await supabase
@@ -90,6 +103,10 @@ export async function POST(req: Request) {
       business_type,
       answers,
       free_text: free_text && free_text.trim().length > 0 ? free_text : null,
+      owner_email:
+        owner_email && owner_email.trim().length > 0
+          ? owner_email.trim().toLowerCase()
+          : null,
       // status, payment_status, recommendation, blueprint_json, etc.
       // all use schema defaults. detected_language stays null until
       // Session 2's Claude call fills it.
