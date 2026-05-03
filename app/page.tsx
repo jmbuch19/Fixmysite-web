@@ -1,7 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { ScanForm } from '@/components/scan/ScanForm'
-import { WaitlistForm } from '@/components/waitlist/WaitlistForm'
 
 const CHECKS = [
   {
@@ -107,24 +106,31 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Second-door waitlist — for visitors without a website yet.
-            Thin white band between the mint hero and the next mint
-            section. Subtle by design: ghost-style submit button so it
-            never competes with the primary "Scan my site" CTA above. */}
+        {/* Second door — visitors without a website yet (or a stale one
+            they want to replace). Used to be a "notify me when launched"
+            waitlist, but the Blueprint Engine is shipped — point people
+            at the live wizard instead. Ghost-style button keeps it
+            visually subordinate to the primary "Scan my site" CTA above. */}
         <section className="border-y border-zinc-100 bg-white">
           <div className="mx-auto w-full max-w-3xl px-5 py-8 sm:px-8 sm:py-10">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
               <div className="max-w-md">
                 <p className="text-base font-semibold text-zinc-900">
-                  No website yet?
+                  No website yet, or one you want to replace?
                 </p>
                 <p className="mt-1 text-sm leading-relaxed text-zinc-600">
-                  Be the first to know when Bugbite launches website
-                  planning for Indian businesses.
+                  Answer seven short questions. Bugbite writes a tailored
+                  website blueprint — what kind of site fits, the right
+                  technology, the right budget, and a step-by-step plan.
                 </p>
               </div>
-              <div className="sm:min-w-[360px] sm:max-w-md sm:flex-1">
-                <WaitlistForm source="landing" />
+              <div className="sm:flex-shrink-0">
+                <Link
+                  href="/plan"
+                  className="inline-flex items-center justify-center rounded-lg border border-brand bg-transparent px-5 py-2.5 text-base font-medium text-brand transition-colors hover:bg-brand-surface"
+                >
+                  Plan a website →
+                </Link>
               </div>
             </div>
           </div>
