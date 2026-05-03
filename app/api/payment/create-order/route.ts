@@ -8,6 +8,10 @@ export const runtime = 'nodejs'
 
 const bodySchema = z.object({
   scan_id: z.uuid(),
+  // Defence in depth — UI gates the Pay button on the consent
+  // checkbox. Server-side, refuse to create an order without it so a
+  // hand-crafted POST cannot bypass the consent gate.
+  terms_accepted: z.literal(true),
 })
 
 export async function POST(req: Request) {
@@ -24,7 +28,17 @@ export async function POST(req: Request) {
   try {
     const json = await req.json()
     scan_id = bodySchema.parse(json).scan_id
-  } catch {
+  } catch (err) {
+    // Treat a missing/false terms_accepted as a separate error code so
+    // the client can distinguish UX bug from real validation failure.
+    const issues = (err as { issues?: { path: (string | number)[] }[] })?.issues
+    const isTerms = issues?.some((i) => i.path?.[0] === 'terms_accepted')
+    if (isTerms) {
+      return Response.json(
+        { error: 'Terms and Privacy Policy must be accepted before payment' },
+        { status: 400 },
+      )
+    }
     return Response.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
@@ -119,6 +133,7 @@ export async function POST(req: Request) {
     .update({
       razorpay_order_id: order.id,
       tier: tier.name,
+      terms_accepted_at: new Date().toISOString(),
     })
     .eq('id', scan.id)
 

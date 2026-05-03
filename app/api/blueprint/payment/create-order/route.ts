@@ -13,6 +13,10 @@ export const dynamic = 'force-dynamic'
 
 const bodySchema = z.object({
   blueprint_id: z.uuid(),
+  // Defence in depth — UI gates the Pay button on the consent
+  // checkbox. Server-side, refuse to create an order without it so a
+  // hand-crafted POST cannot bypass the consent gate.
+  terms_accepted: z.literal(true),
 })
 
 /**
@@ -45,7 +49,15 @@ export async function POST(req: Request) {
   let blueprint_id: string
   try {
     blueprint_id = bodySchema.parse(await req.json()).blueprint_id
-  } catch {
+  } catch (err) {
+    const issues = (err as { issues?: { path: (string | number)[] }[] })?.issues
+    const isTerms = issues?.some((i) => i.path?.[0] === 'terms_accepted')
+    if (isTerms) {
+      return Response.json(
+        { error: 'Terms and Privacy Policy must be accepted before payment' },
+        { status: 400 },
+      )
+    }
     return Response.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
@@ -150,7 +162,10 @@ export async function POST(req: Request) {
   // auto-expires orphaned orders, so no cleanup needed.
   const { error: updateError } = await supabase
     .from('website_blueprints')
-    .update({ razorpay_order_id: order.id })
+    .update({
+      razorpay_order_id: order.id,
+      terms_accepted_at: new Date().toISOString(),
+    })
     .eq('id', row.id)
 
   if (updateError) {

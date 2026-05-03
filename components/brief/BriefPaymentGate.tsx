@@ -89,6 +89,7 @@ export function BriefPaymentGate({
 }) {
   const router = useRouter()
   const [state, setState] = useState<PaymentState>({ phase: 'idle' })
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
 
   // Lazy-load the Razorpay checkout script. Skip if already loaded
   // (back-nav to preview from elsewhere) or already injected
@@ -149,7 +150,7 @@ export function BriefPaymentGate({
       const res = await fetch('/api/brief/payment/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brief_id: briefId }),
+        body: JSON.stringify({ brief_id: briefId, terms_accepted: true }),
       })
 
       if (res.status === 409) {
@@ -309,9 +310,43 @@ export function BriefPaymentGate({
         you the PDF as soon as the payment confirms.
       </p>
 
+      {/* T&C consent — required before the Pay button enables. The
+          server also enforces terms_accepted: true in the create-order
+          body so a hand-crafted POST cannot bypass this gate. */}
+      <label className="mt-5 flex cursor-pointer items-start gap-2 text-xs leading-relaxed text-zinc-700">
+        <input
+          type="checkbox"
+          checked={acceptedTerms}
+          onChange={(e) => setAcceptedTerms(e.target.checked)}
+          disabled={state.phase === 'preparing'}
+          className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-brand"
+        />
+        <span>
+          I agree to the{' '}
+          <a
+            href="/terms"
+            target="_blank"
+            rel="noopener"
+            className="font-medium text-brand underline underline-offset-2 hover:text-brand-accent"
+          >
+            Terms of Service
+          </a>{' '}
+          and{' '}
+          <a
+            href="/privacy"
+            target="_blank"
+            rel="noopener"
+            className="font-medium text-brand underline underline-offset-2 hover:text-brand-accent"
+          >
+            Privacy Policy
+          </a>
+          .
+        </span>
+      </label>
+
       {state.phase === 'preparing' ? (
         <p
-          className="mt-5 text-sm font-medium text-zinc-900"
+          className="mt-4 text-sm font-medium text-zinc-900"
           role="status"
           aria-live="polite"
         >
@@ -321,9 +356,9 @@ export function BriefPaymentGate({
         <button
           type="button"
           onClick={handlePay}
-          disabled={isBusy}
+          disabled={isBusy || !acceptedTerms}
           aria-busy={isBusy}
-          className="mt-5 inline-flex w-full items-center justify-center rounded-lg bg-brand px-5 py-3 text-base font-medium text-white transition-colors hover:bg-brand-accent disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          className="mt-4 inline-flex w-full items-center justify-center rounded-lg bg-brand px-5 py-3 text-base font-medium text-white transition-colors hover:bg-brand-accent disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           {buttonLabel}
         </button>

@@ -87,6 +87,7 @@ export function BlueprintPaymentGate({
 }) {
   const router = useRouter()
   const [state, setState] = useState<PaymentState>({ phase: 'idle' })
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -168,7 +169,10 @@ export function BlueprintPaymentGate({
       const res = await fetch('/api/blueprint/payment/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blueprint_id: blueprintId }),
+        body: JSON.stringify({
+          blueprint_id: blueprintId,
+          terms_accepted: true,
+        }),
       })
 
       if (res.status === 409) {
@@ -366,9 +370,46 @@ export function BlueprintPaymentGate({
         </li>
       </ul>
 
+      {/* T&C consent — required before the Pay button enables. The
+          server also enforces terms_accepted: true in the create-order
+          body (defence in depth) so a hand-crafted POST cannot bypass
+          this gate. terms_accepted_at gets persisted on the row when
+          the order is created, giving us a queryable audit trail for
+          dispute defence. */}
+      <label className="mt-5 flex cursor-pointer items-start gap-2 text-xs leading-relaxed text-white/80">
+        <input
+          type="checkbox"
+          checked={acceptedTerms}
+          onChange={(e) => setAcceptedTerms(e.target.checked)}
+          disabled={state.phase === 'preparing'}
+          className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-brand"
+        />
+        <span>
+          I agree to the{' '}
+          <a
+            href="/terms"
+            target="_blank"
+            rel="noopener"
+            className="underline underline-offset-2 hover:text-white"
+          >
+            Terms of Service
+          </a>{' '}
+          and{' '}
+          <a
+            href="/privacy"
+            target="_blank"
+            rel="noopener"
+            className="underline underline-offset-2 hover:text-white"
+          >
+            Privacy Policy
+          </a>
+          .
+        </span>
+      </label>
+
       {state.phase === 'preparing' ? (
         <p
-          className="mt-6 text-sm font-medium text-white"
+          className="mt-4 text-sm font-medium text-white"
           role="status"
           aria-live="polite"
         >
@@ -378,9 +419,9 @@ export function BlueprintPaymentGate({
         <button
           type="button"
           onClick={handlePay}
-          disabled={isBusy}
+          disabled={isBusy || !acceptedTerms}
           aria-busy={isBusy}
-          className="mt-6 inline-flex w-full items-center justify-center rounded-lg bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-accent disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          className="mt-4 inline-flex w-full items-center justify-center rounded-lg bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-accent disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           {buttonLabel}
         </button>
