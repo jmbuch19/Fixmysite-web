@@ -1312,6 +1312,12 @@ serwist.addEventListeners()
 71. Blueprint payment gate: same pattern as scan — create-order → verify → unlock full blueprint
 72. Never recommend "custom build" for businesses with budget under ₹50,000 — redirect to feature or platform
 73. Blueprint PDF uses same @react-pdf/renderer pattern as report PDF — server-side only
+74. Spark Report is the **fifth separate Claude call** — never merge with report / UX audit / brief / blueprint. Separate prompt, separate call, Sonnet 4.6.
+75. Spark prompt: Phase 1 always gets 60% of the response weight — Start is the only thing that matters now. Phases 2 and 3 stay deliberately smaller.
+76. Spark prompt: `one_thing_today` must be achievable in 2 hours, no equipment needed. This is the most important line on the page.
+77. Spark prompt: Indian tools only — Framer, Canva, Behance, Instagram, Fiverr India, Truelancer, college networks. Never Squarespace. Never Upwork US rates. Never patronising — these users have been oversold to before.
+78. Spark prompt: honest timelines always — if it takes 6 months to earn ₹10,000/month at 10 hours/week, say so. Overselling income potential to creative builders is a brand-trust failure.
+79. **The question engine is a prompt compiler** — applies to Brief, Blueprint, and Spark equally. Every cascading click adds structured context to the Claude prompt without the user writing a sentence. The user expresses themselves through choices; the platform does the writing for Claude. This is not a UX gimmick — it is the core reason these products work better than ChatGPT for non-technical Indian users.
 
 ---
 
@@ -1339,7 +1345,11 @@ serwist.addEventListeners()
 | Making brief screenshots publicly accessible | R2 private bucket only — signed URLs, 1hr expiry |
 | Generating brief without verifying scan payment | brief.scan_id must belong to paid scan — verify server-side |
 | Hardcoding business type | Always Claude-detected from URL content |
-| Merging brief prompt with report prompt | Three separate Claude calls: report / UX audit / brief |
+| Merging brief prompt with report prompt | Five separate Claude calls: report / UX audit / brief / blueprint / spark — never collapse |
+| Recommending Squarespace, Upwork US rates, or any non-Indian tool in Spark | Indian tools only: Framer, Canva, Behance, Instagram, Fiverr India, Truelancer |
+| Giving Spark Phase 1, 2, 3 equal weight in the response | Phase 1 always gets 60% — Start is the only thing that matters now |
+| Patronising language in Spark output | These users are smart and have been oversold to before — direction, not motivation |
+| Treating the cascading question engine as a UX gimmick | It is a prompt compiler — every click adds structured Claude context. Never replace with a flat form. |
 | Accepting gmail for enterprise claim | Free providers blocked for complex/enterprise/institution — never for simple/standard |
 | Running Phase 1 before classifyUrl | classifyUrl always runs first — no exceptions |
 | Blocking standard site for using Gmail | Standard sites (11–50 pages) are never blocked — flag in report instead |

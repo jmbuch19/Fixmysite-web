@@ -2344,13 +2344,20 @@ components/intake/IntakeProgress.tsx  ← Visual "X of 5 sections" indicator
 
 ### Philosophy
 
-fixmysite.in has two doors. The first is for businesses with a sick website. The second is for businesses with no website at all.
+fixmysite.in has three doors:
 
-Same platform. Same soul. Different journey.
+- **Door 1** — for businesses with a sick website (Health Scan, §5)
+- **Door 2** — for businesses with no website yet (this section, the Blueprint Engine)
+- **Door 3** — for creative builders with an idea or skill but no business yet (Spark Report, §21)
+
+Same platform. Same soul. Three different journeys.
 
 The Blueprint Engine is not a form. It is a conversation that builds a complete picture — through cascading Yes/No questions and open text — so Claude can produce a genuine, reasoned technology recommendation. Not a template. Not a guess. A specific answer to a specific business situation.
 
-**"A website doctor who also does family planning."**
+**"A website doctor who also does family planning — and a startup advisor for creative builders."**
+
+> **Build principle — the question engine is a prompt compiler.**
+> The cascading flow is not a UX gimmick. Every click adds structured context to the Claude prompt without the user writing a sentence. By the time they submit, fixmysite.in has compiled a 400–500 word structured context block that gives Claude everything needed for a specific, personalised report. **The user expresses themselves through choices, not writing. The platform does the writing for Claude.** This principle applies to every Claude-driven product on the platform — Brief, Blueprint, and Spark all share it.
 
 ---
 
@@ -2363,9 +2370,12 @@ What would you like to do today?
 
 ○ Check my existing website for problems    → /scan
 ○ Plan a new website from scratch           → /plan
+○ Start my journey from an idea or skill    → /plan/questions (Spark path, §21)
 ```
 
-Both options visible above the fold. Neither dominates. Owner knows immediately which door is theirs.
+All three options visible above the fold. None dominates. Owner knows immediately which door is theirs.
+
+The third door routes through the same `/plan/questions` URL — Branch 1 of the wizard ("What brings you here today?") splits Door 2 (Blueprint flow) from Door 3 (Spark flow) based on the answer.
 
 ---
 
@@ -2765,3 +2775,365 @@ website_blueprints (
 - [ ] ₹99 payment flow tested
 - [ ] "Find a developer" connection to partner network tested
 - [ ] Cross-sell "scan for ₹49" link tested from blueprint page
+
+---
+
+## 21. Spark Report — Creative Builder Path
+
+### Philosophy
+
+The Blueprint Engine (§20) was designed for business owners who have customers, turnover, and a clear need. But there is a second person who lands on fixmysite.in/plan with something equally real — not a business, but an idea. A design student in Vadodara. A photographer in Surat who wants to go freelance. A working professional who builds websites on weekends and wants to know if it could become something more.
+
+This person cannot answer questions about monthly turnover or customer geography. Every question feels like it was written for someone else. They close the tab.
+
+The Spark Report is built for them.
+
+**The Spark Report does not plan a website. It plans a journey.**
+
+---
+
+### The Third Door
+
+```
+Door 1: Fix my site      → Health Scan (existing, §5)
+Door 2: Plan my site     → Blueprint Engine (existing, §20)
+Door 3: Start my journey → Spark Report (this section)
+```
+
+Triggered at the very first question of the /plan/questions wizard:
+
+```
+What brings you here today?
+
+○ I have a business and need a website
+  → existing Blueprint question flow (§20)
+
+○ I have an idea or skill and want to build something
+  → Spark Report flow
+
+○ I want to learn web design or development
+  → Spark Report flow
+
+○ I'm just exploring — not sure yet
+  → Short version of Spark Report flow
+```
+
+---
+
+### The Creative Builder Persona
+
+```
+Age:          18–28 typically (not exclusively)
+Situation:    Student / early career / side-hustle seeker
+Has:          Creative energy, ideas, design sense, skills
+Doesn't have: Business, customers, turnover, budget clarity
+Goal:         "I want to build something.
+               Tell me what that something should be."
+Language:     Hindi / Gujarati / English / Hinglish
+Platform:     Mostly mobile
+Motivation:   Side income → serious business → career pivot
+```
+
+---
+
+### Spark Report Question Flow
+
+Four branches. All optional. All mobile-friendly. No question assumes an existing business.
+
+#### Branch A — What's The Idea?
+```
+What excites you most right now?
+○ Showcasing my creative work
+  (design, art, photography, writing, music)
+○ Teaching something I know well
+○ Selling something I make
+  (handmade, digital products, art prints)
+○ Building a community around a topic
+○ Offering a service
+  (design, coding, tutoring, content creation)
+○ Something specific: [text box — any language]
+```
+
+#### Branch B — Where Are You Right Now?
+```
+How would you describe your situation?
+○ Student — this is a side project
+○ Working — exploring as a second income
+○ Freelancing already — want to grow
+○ Between things — this is the main focus
+○ Just curious — no pressure
+
+Do you have anything to show yet?
+○ Just ideas in my head
+○ Sketches / mood boards / notes somewhere
+○ A portfolio on Behance / Dribbble / Instagram
+○ A few completed projects for clients or friends
+○ Already charging for this work
+```
+
+#### Branch C — Time and Technology
+```
+How much time can you give this per week?
+○ Under 5 hours (hobby pace)
+○ 5–15 hours (serious side project)
+○ 15–30 hours (main focus alongside other work)
+○ Full time — this is it
+
+How comfortable are you with technology?
+○ I can use Canva and basic tools
+○ I have made a basic website before
+○ I know HTML and CSS basics
+○ I can code — looking for direction not basics
+
+Budget for tools and hosting?
+○ ₹0 — needs to be free to start
+○ Under ₹500 per month
+○ Under ₹2,000 per month
+○ Open — if it genuinely makes sense
+```
+
+#### Branch D — The Dream Question
+```
+Finish this sentence in your own words:
+
+"One year from now, I want people to know me for..."
+
+[text box — any language, any length]
+[Examples shown below input:]
+"meri photography ke liye"
+"being the go-to designer for Gujarati small businesses"
+"teaching animation to students who can't afford classes"
+
+This is the most important thing the user answers.
+The rest shapes the path. This defines the destination.
+```
+
+---
+
+### The Question Engine As Prompt Compiler
+
+The cascading question flow is not a form. It is a **prompt compiler** — see the Build Principle in §20.
+
+```
+User clicks 12 answers + writes 1 sentence
+      ↓
+fixmysite.in compiles structured prompt
+      ↓
+Claude receives full context
+      ↓
+Claude produces specific 3-phase roadmap
+      ↓
+User never had to write a paragraph
+      ↓
+No token waste. No vague output. No dead ends.
+```
+
+This is the core UX value of the question engine across all three doors — Brief, Blueprint, Spark.
+
+---
+
+### Claude Spark Prompt
+
+```typescript
+// /lib/claude/spark.ts
+
+const sparkSystemPrompt = `
+You are a career and creative business advisor for young Indians
+who want to turn their skills and ideas into real income.
+
+Your audience: students, early-career professionals, freelancers
+starting out. They have energy and ideas but not yet customers or
+turnover.
+
+Rules:
+- Be specific. Generic advice ("build a portfolio") is useless.
+  Specific advice ("open Framer today, put one project on a page,
+  share the link with one person by tonight") is what they need.
+- Three phases always: Start → First client → Scale.
+  Never give all three at once with equal weight —
+  Phase 1 is the only thing that matters right now.
+- Honest timelines. If it takes 6 months to earn ₹10,000/month,
+  say so. Do not oversell. These users have been oversold to before.
+- One thing to do today. Always. Concrete. Achievable in 2 hours.
+- "Not yet" list. What they should NOT do yet —
+  stops them from building infrastructure before they have clients.
+- Indian context throughout: mention Framer, Canva, Behance,
+  Instagram, Fiverr India, local WhatsApp groups, college networks.
+  Not Squarespace. Not Upwork US rates.
+- Free and low-cost first. Only suggest paid tools when free
+  options genuinely cannot serve the need.
+- Never use: "utilize", "leverage", "ensure", "robust", "seamless"
+- Never be patronising. They are smart. They just need direction.
+- Output: valid JSON only. No markdown. No preamble.
+`
+
+const sparkUserPrompt = `
+Creative builder intake:
+${JSON.stringify(answers, null, 2)}
+
+Dream statement (${detectedLanguage}):
+"${dreamStatement}"
+
+Return JSON in this exact shape:
+{
+  "we_heard": string (2-3 sentences — what we understood about them and their goal. Reference their dream statement directly.),
+  "path_type": "portfolio_to_freelance" | "maker_to_seller" | "knowledge_to_teacher" | "community_builder" | "service_provider",
+  "honest_timeline": string (realistic months-to-first-income estimate based on their time commitment),
+
+  "phase_1": {
+    "what": string,
+    "why": string (why this before anything else),
+    "timeline": string (e.g. "2–3 weekends"),
+    "cost": string (e.g. "₹0–₹500"),
+    "how": string (specific tools and approach — Indian context),
+    "pages_or_steps_needed": string[],
+    "first_step": string (what to do in the next 2 hours)
+  },
+
+  "phase_2": {
+    "what": string,
+    "when": string (after what milestone does phase 2 begin),
+    "where_to_find_clients": string[] (specific Indian platforms, channels, communities)
+  },
+
+  "phase_3": {
+    "what": string,
+    "when": string,
+    "what_it_looks_like": string (concrete example of productised service with ₹ pricing)
+  },
+
+  "not_yet": string[] (3-5 things they should NOT build or spend on yet — with brief reason),
+
+  "one_thing_today": string (single action, achievable in 2 hours, no equipment needed),
+
+  "if_they_asked": {
+    "what_platform": string,
+    "what_to_charge": string,
+    "what_to_call_themselves": string
+  }
+}
+`
+```
+
+---
+
+### Spark Report Output — Display Structure
+
+```
+Page: /plan/spark/[id]
+
+1. "Here's what Bugbite understood" card
+   we_heard — teal callout, their dream statement quoted
+
+2. Path-type pill
+   "Portfolio → Freelance" / "Maker → Seller" etc.
+   With honest timeline: "6–9 months to first ₹10,000 month
+   at 10 hours/week"
+
+3. Phase 1 — START HERE
+   Large, prominent. Everything else is smaller.
+   What / Why / How / Cost / Timeline
+   Tools listed with links
+   Pages/steps needed
+
+4. Phase 2 — After [milestone]
+   Smaller card. Greyed slightly.
+   "Unlock this when Phase 1 is done"
+
+5. Phase 3 — The real business
+   Even smaller. Furthest away.
+   What it could look like with real ₹ numbers
+
+6. Not yet list
+   Honest. Short. Prevents expensive mistakes.
+
+7. One thing to do today
+   Bold. Orange #E87C28. Boxed separately.
+   This is the most important line on the page.
+
+8. Upsell (soft, not pushy):
+   "Ready to plan the actual website?
+    Get a full Blueprint for ₹99 →"
+```
+
+---
+
+### Pricing
+
+```
+Spark Report — ₹49
+OR free with waitlist email signup
+```
+
+**Rationale for the free option:** Creative builders have limited budgets. They become the best word-of-mouth channel. A design student who gets real value tells 20 friends. A clinic owner tells 2. Free Spark → ₹99 Blueprint when ready → ₹99 Developer Brief → ₹49 monthly monitor. The lifetime value of a creative builder who grows into a real business is higher than a one-time ₹49 scan.
+
+**Bundle:** Spark (free) + Blueprint (₹99) shown as upgrade on Spark result page.
+
+**Token cost note:** A useful Spark JSON output is ~3–5K tokens. Sonnet 4.6 cost ~₹3–5 per Spark. At 1,000 sparks/month free, that's a ₹3,000–5,000/month subsidy — acceptable LTV bet at the founder's discretion. Revisit if Sparks scale past 5,000/month without Blueprint conversions.
+
+---
+
+### New Pages
+
+```
+/plan/questions    → existing, add Door 3 trigger at Branch 1
+/plan/spark/[id]   → Spark Report result page
+```
+
+### New API Routes
+
+```
+POST /api/spark/generate   → Claude Spark call (fifth separate Claude call)
+GET  /api/spark/[id]       → Fetch spark report
+```
+
+### New DB Table
+
+```sql
+spark_reports (
+  id                uuid primary key default gen_random_uuid()
+  answers           jsonb not null default '{}'
+  dream_statement   text
+  dream_language    text    -- Claude-detected ISO 639-1
+  path_type         text    -- portfolio_to_freelance | maker_to_seller | etc.
+  spark_json        jsonb
+  payment_status    text default 'unpaid'  -- or 'free'
+  owner_email       text
+  created_at        timestamptz default now()
+)
+```
+
+### CLAUDE.md Addition
+
+Spark Report is the **fifth separate Claude call** — never merged with report / UX audit / brief / blueprint. Separate prompt. Separate call. Sonnet 4.6.
+
+Spark prompt rules:
+- Always three phases: Start → First client → Scale
+- Phase 1 always gets 60% of the response weight
+- One thing today: always achievable in 2 hours
+- Indian tools only: Framer, Canva, Behance, Instagram, Fiverr India
+- Honest timelines: never oversell
+- Never patronising — they are smart, they need direction
+
+---
+
+### PostHog Events
+
+| Event | Properties |
+|---|---|
+| `spark_started` | path_type |
+| `spark_questions_completed` | answer_count, has_dream_statement |
+| `spark_generated` | path_type, detected_language |
+| `spark_blueprint_upgrade_clicked` | spark_id |
+| `spark_free_claimed` | spark_id |
+
+---
+
+### Launch Checklist Additions
+
+- [ ] Door 3 trigger added to /plan/questions Branch 1
+- [ ] /plan/spark/[id] page built and tested
+- [ ] Spark generation tested for all 5 path types
+- [ ] Free vs paid flow tested
+- [ ] Blueprint upgrade CTA tested from Spark result page
+- [ ] Dream statement in Hindi/Gujarati tested end to end
