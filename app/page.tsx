@@ -95,12 +95,12 @@ export default function Home() {
                 subject means international pings sort cleanly in the
                 inbox without needing a contact form. */}
             <p className="mt-2 text-xs italic text-zinc-500">
-              Bugbite ventures abroad soon —{' '}
+              Bugbite ventures abroad soon — say hi at{' '}
               <a
                 href="mailto:hello@fixmysite.in?subject=Scanning%20from%20outside%20India"
                 className="font-medium text-brand underline underline-offset-2 hover:text-brand-accent"
               >
-                say hi
+                hello@fixmysite.in
               </a>{' '}
               if you&apos;re scanning from outside India.
             </p>
