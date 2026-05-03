@@ -247,13 +247,77 @@ export const INDIAN_ENTERPRISE_DOMAINS = [
 
 /**
  * Path C — institution / non-profit / government. Domain-match OTP required;
- * pricing ₹999–₹4,999 by sub-type. Closed list — these are ICANN-defined.
+ * pricing ₹999–₹4,999 by sub-type for Indian institutions, manual quote per
+ * inquiry for foreign ones (admin sets the price after OTP verification).
+ *
+ * Coverage: India (.ac.in, .edu.in, .gov, .gov.in, .mil.in, .ngo.in,
+ * .org.in, .res.in) plus the major foreign academic and government TLDs:
+ *   - UK / Commonwealth: .ac.uk, .gov.uk
+ *   - Australia / NZ:    .edu.au, .gov.au, .ac.nz
+ *   - Japan / Korea:     .ac.jp, .ac.kr, .go.jp, .go.kr
+ *   - South Asia:        .edu.bd, .gov.bd, .edu.lk, .gov.lk,
+ *                        .edu.np, .gov.np, .edu.pk, .gov.pk-equivalent
+ *   - SE Asia:           .edu.my, .gov.my, .edu.sg, .gov.sg,
+ *                        .edu.ph, .gov.ph, .edu.tw
+ *   - Greater China:     .edu.cn, .gov.cn (.gov.hk falls under .gov)
+ *   - Africa:            .ac.za, .gov.za
+ *   - Europe:            .gouv.fr (France), .bund.de (Germany federal)
+ *   - Latin America:     .gob.ar, .gob.es, .gob.mx
+ *   - Global:            .edu (US universities), .mil (US military),
+ *                        .int (UN, WHO, IMF and other international orgs)
+ *
+ * Foreign institution gating: an Oxford or Harvard or UN domain hits the
+ * institution OTP flow and creates an enterprise_inquiries row. The founder
+ * sets the price manually before approval — Indian sub-type pricing
+ * (₹999/₹2,999/₹4,999) does not apply to foreign institutions; they are
+ * priced like a manual enterprise inquiry, currently quoted in INR but
+ * PPP-adjusted pricing is on the v2 international rollout plan.
+ *
+ * Maintenance: alphabetical order on every addition. ICANN-recognised
+ * second-level domains for institutional / governmental use only — do not
+ * add commercial sub-TLDs (.co.uk, .com.au, etc.) here, those route through
+ * GLOBAL_ENTERPRISE_DOMAINS or the page-count tier.
  */
 export const INSTITUTION_TLDS = [
   '.ac.in',
+  '.ac.jp',
+  '.ac.kr',
+  '.ac.nz',
+  '.ac.uk',
+  '.ac.za',
+  '.bund.de',
+  '.edu',
+  '.edu.au',
+  '.edu.bd',
+  '.edu.cn',
   '.edu.in',
+  '.edu.lk',
+  '.edu.my',
+  '.edu.np',
+  '.edu.ph',
+  '.edu.pk',
+  '.edu.sg',
+  '.edu.tw',
+  '.go.jp',
+  '.go.kr',
+  '.gob.ar',
+  '.gob.es',
+  '.gob.mx',
+  '.gouv.fr',
   '.gov',
+  '.gov.au',
+  '.gov.bd',
+  '.gov.cn',
   '.gov.in',
+  '.gov.lk',
+  '.gov.my',
+  '.gov.np',
+  '.gov.ph',
+  '.gov.sg',
+  '.gov.uk',
+  '.gov.za',
+  '.int',
+  '.mil',
   '.mil.in',
   '.ngo.in',
   '.org.in',
