@@ -165,55 +165,130 @@ export default function Home() {
           </div>
         </section>
 
-        {/* How it works */}
+        {/* How it works — two doors side by side. Mirrored 3-step
+            structure across both columns so the parallel reads cleanly:
+            cheap entry → paid unlock → use yourself or hand off.
+            Stacks on mobile, two columns from sm. When the third door
+            (Spark Report) ships, switch to lg:grid-cols-3 and add the
+            third column. */}
         <section className="bg-brand-surface">
-          <div className="mx-auto w-full max-w-3xl px-5 py-16 sm:px-8 sm:py-20">
+          <div className="mx-auto w-full max-w-5xl px-5 py-16 sm:px-8 sm:py-20">
             <h2 className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">
               How it works
             </h2>
-            <ol className="mt-8 space-y-6">
-              <li className="flex gap-4">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
-                  1
-                </span>
-                <div>
-                  <h3 className="text-base font-semibold text-zinc-900">
-                    Paste your website URL
-                  </h3>
-                  <p className="mt-1 text-sm text-zinc-700">
-                    Bugbite shows the biggest issues right away — free, in 30 seconds.
-                  </p>
-                </div>
-              </li>
-              <li className="flex gap-4">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
-                  2
-                </span>
-                <div>
-                  <h3 className="text-base font-semibold text-zinc-900">
-                    Get the full report for ₹49
-                  </h3>
-                  <p className="mt-1 text-sm text-zinc-700">
-                    Bugbite hands you the full findings with a step-by-step
-                    fix list, ordered by what matters most.
-                  </p>
-                </div>
-              </li>
-              <li className="flex gap-4">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
-                  3
-                </span>
-                <div>
-                  <h3 className="text-base font-semibold text-zinc-900">
-                    Fix it yourself or send it to your developer
-                  </h3>
-                  <p className="mt-1 text-sm text-zinc-700">
-                    Plain-language actions from Bugbite. PDF report you can
-                    email to whoever builds your site.
-                  </p>
-                </div>
-              </li>
-            </ol>
+            <p className="mt-3 text-base text-zinc-700">
+              Two doors. Same Bugbite. Pick whichever fits where you are.
+            </p>
+
+            <div className="mt-10 grid gap-10 sm:grid-cols-2 sm:gap-8">
+              {/* Door 1 — Scan an existing site */}
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-brand">
+                  Scan an existing site
+                </h3>
+                <p className="mt-1 text-base font-semibold text-zinc-900">
+                  You already have a website
+                </p>
+                <ol className="mt-6 space-y-6">
+                  <li className="flex gap-4">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
+                      1
+                    </span>
+                    <div>
+                      <h4 className="text-base font-semibold text-zinc-900">
+                        Paste your website URL
+                      </h4>
+                      <p className="mt-1 text-sm text-zinc-700">
+                        Bugbite shows the biggest issues right away — free,
+                        in 30 seconds.
+                      </p>
+                    </div>
+                  </li>
+                  <li className="flex gap-4">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
+                      2
+                    </span>
+                    <div>
+                      <h4 className="text-base font-semibold text-zinc-900">
+                        Get the full report for ₹49
+                      </h4>
+                      <p className="mt-1 text-sm text-zinc-700">
+                        Bugbite hands you the full findings with a
+                        step-by-step fix list, ordered by what matters most.
+                      </p>
+                    </div>
+                  </li>
+                  <li className="flex gap-4">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
+                      3
+                    </span>
+                    <div>
+                      <h4 className="text-base font-semibold text-zinc-900">
+                        Fix it yourself or send it to your developer
+                      </h4>
+                      <p className="mt-1 text-sm text-zinc-700">
+                        Plain-language actions from Bugbite. PDF report you
+                        can email to whoever builds your site.
+                      </p>
+                    </div>
+                  </li>
+                </ol>
+              </div>
+
+              {/* Door 2 — Plan a new site */}
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-brand">
+                  Plan a new site
+                </h3>
+                <p className="mt-1 text-base font-semibold text-zinc-900">
+                  You don&apos;t have a website yet
+                </p>
+                <ol className="mt-6 space-y-6">
+                  <li className="flex gap-4">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
+                      1
+                    </span>
+                    <div>
+                      <h4 className="text-base font-semibold text-zinc-900">
+                        Answer seven short questions
+                      </h4>
+                      <p className="mt-1 text-sm text-zinc-700">
+                        Bugbite asks about your business in plain language —
+                        free, about two minutes.
+                      </p>
+                    </div>
+                  </li>
+                  <li className="flex gap-4">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
+                      2
+                    </span>
+                    <div>
+                      <h4 className="text-base font-semibold text-zinc-900">
+                        Get the full blueprint for ₹99
+                      </h4>
+                      <p className="mt-1 text-sm text-zinc-700">
+                        What kind of site fits, the right technology, the
+                        right budget, and a step-by-step plan to get there.
+                      </p>
+                    </div>
+                  </li>
+                  <li className="flex gap-4">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
+                      3
+                    </span>
+                    <div>
+                      <h4 className="text-base font-semibold text-zinc-900">
+                        Build it yourself or hand it to a developer
+                      </h4>
+                      <p className="mt-1 text-sm text-zinc-700">
+                        Bugbite emails the PDF blueprint. Share it with any
+                        developer — they will know exactly what to build.
+                      </p>
+                    </div>
+                  </li>
+                </ol>
+              </div>
+            </div>
           </div>
         </section>
       </main>
