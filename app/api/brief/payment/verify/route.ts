@@ -1,3 +1,4 @@
+import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { createServiceClient } from '@/lib/supabase/server'
 import { verifyCheckoutSignature } from '@/lib/razorpay/client'
@@ -13,6 +14,7 @@ import {
 } from '@/lib/pdf/briefGenerator'
 import { sendBriefReadyToOwner } from '@/lib/email/sender'
 import { resolveAppUrl } from '@/lib/queue/qstash'
+import { SERVICE_COUNTERS_TAG } from '@/lib/stats/serviceCounters'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -134,6 +136,18 @@ export async function POST(req: Request) {
       error: updateError.message,
     })
     return Response.json({ error: 'Database update failed' }, { status: 500 })
+  }
+
+  // Refresh the homepage service-counter band — new paid brief is a
+  // delivered service. 'max' = stale-while-revalidate. Best-effort,
+  // never blocks the verify response.
+  try {
+    revalidateTag(SERVICE_COUNTERS_TAG, 'max')
+  } catch (err) {
+    console.warn('[brief/verify] revalidateTag failed', {
+      brief_id: brief.id,
+      error: err instanceof Error ? err.message : err,
+    })
   }
 
   // ─── Auto-email the owner (fire-and-log, never fails the response) ──

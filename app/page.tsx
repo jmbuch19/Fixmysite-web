@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { ScanForm } from '@/components/scan/ScanForm'
+import { formatCounter, getServiceCounters } from '@/lib/stats/serviceCounters'
 
 const CHECKS = [
   {
@@ -29,7 +30,9 @@ const CHECKS = [
   },
 ]
 
-export default function Home() {
+export default async function Home() {
+  const counters = await getServiceCounters()
+
   return (
     <div className="flex flex-1 flex-col">
       <header className="border-b border-zinc-100 bg-white">
@@ -105,6 +108,52 @@ export default function Home() {
             </p>
           </div>
         </section>
+
+        {/* Service-to-date counters — only renders once any one of the
+            three service streams clears its visibility floor. Numbers
+            are paid+complete service deliveries only (no in-flight
+            scans, no draft blueprints). Cached 24h, refreshed via
+            revalidateTag('service-counters') from each delivery point.
+            See lib/stats/serviceCounters.ts. */}
+        {counters && (
+          <section className="border-y border-zinc-100 bg-white">
+            <div className="mx-auto w-full max-w-5xl px-5 py-10 sm:px-8 sm:py-14">
+              <p className="text-xs font-semibold uppercase tracking-wider text-brand">
+                Bugbite to date
+              </p>
+              <h2 className="mt-2 max-w-2xl text-xl font-semibold tracking-tight text-zinc-900 sm:text-2xl">
+                Real Indian businesses, real service delivered.
+              </h2>
+
+              <ul className="mt-8 grid gap-4 sm:grid-cols-3 sm:gap-6">
+                <li className="rounded-2xl border border-zinc-100 bg-brand-surface p-6 sm:p-8">
+                  <p className="text-4xl font-semibold tracking-tight text-brand sm:text-5xl">
+                    {formatCounter(counters.audited)}
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-zinc-700">
+                    Websites audited
+                  </p>
+                </li>
+                <li className="rounded-2xl border border-zinc-100 bg-brand-surface p-6 sm:p-8">
+                  <p className="text-4xl font-semibold tracking-tight text-brand sm:text-5xl">
+                    {formatCounter(counters.blueprints)}
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-zinc-700">
+                    Blueprints generated
+                  </p>
+                </li>
+                <li className="rounded-2xl border border-zinc-100 bg-brand-surface p-6 sm:p-8">
+                  <p className="text-4xl font-semibold tracking-tight text-brand sm:text-5xl">
+                    {formatCounter(counters.briefs)}
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-zinc-700">
+                    Developer briefs delivered
+                  </p>
+                </li>
+              </ul>
+            </div>
+          </section>
+        )}
 
         {/* Second door — visitors without a website yet (or a stale one
             they want to replace). Used to be a "notify me when launched"

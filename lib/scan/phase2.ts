@@ -1,4 +1,6 @@
+import { revalidateTag } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/server'
+import { SERVICE_COUNTERS_TAG } from '@/lib/stats/serviceCounters'
 import type { Phase1Result } from '@/lib/scan/phase1'
 import {
   hasTwilioCredentials,
@@ -351,6 +353,20 @@ export async function runPhase2(scan_id: string): Promise<Phase2Outcome> {
       reason: 'db_error',
       message: persistError.message,
     }
+  }
+
+  // Bust the homepage service-counter cache so the new completion
+  // shows up on the next render. 'max' = stale-while-revalidate so
+  // the next homepage hit serves the cached value immediately and
+  // fetches the fresh count in the background. Best-effort — a
+  // counter that lags is acceptable; a failed scan persist is not.
+  try {
+    revalidateTag(SERVICE_COUNTERS_TAG, 'max')
+  } catch (err) {
+    console.warn('[phase2] revalidateTag failed', {
+      scan_id,
+      error: err instanceof Error ? err.message : err,
+    })
   }
 
   return {
