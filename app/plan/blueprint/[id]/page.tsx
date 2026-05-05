@@ -17,9 +17,9 @@ export const metadata: Metadata = {
  * /plan/blueprint/[id] — free preview of the generated blueprint.
  *
  * Server component shell only — the actual preview UI runs client-side
- * because it owns the generate-on-demand lifecycle (Claude takes ~15s
- * and we want the loading state to be visible, not blocking the
- * server render).
+ * because it owns the generate-on-demand lifecycle (Claude generation
+ * takes long enough that the loading state must be visible, not
+ * blocking the server render).
  *
  * Slice 2.1 ships the preview path. Slice 2.2 adds the paid full page
  * at /plan/blueprint/[id]/full and wires the unlock button to Razorpay.

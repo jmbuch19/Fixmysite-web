@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { BlueprintPaymentGate } from '@/components/blueprint/BlueprintPaymentGate'
 import { BLUEPRINT_PRICING } from '@/constants/pricing'
@@ -32,10 +33,13 @@ type LoadState =
  *      pill → ₹99 paywall)
  *
  * Generation is owned by this page, not the wizard. Why: the wizard's
- * "Saving…" state covers the create call (~1s); the 10-15s Claude call
+ * "Saving…" state covers the create call (~1s); the slower Claude call
  * happens here behind a clear loading state ("Bugbite is reading your
  * answers…"). Owner who refreshes or shares the URL gets the same
- * lazy-generation behaviour for free.
+ * lazy-generation behaviour for free. Loader copy intentionally avoids
+ * a numeric duration — Claude call latency varies and an underestimated
+ * promise ("about 15 seconds") feels worse than a non-specific one when
+ * the model is slow that day.
  *
  * The /api/blueprint/generate endpoint is idempotent (cached: true on
  * subsequent calls) so a double-mount or back-button is harmless.
@@ -195,14 +199,23 @@ async function generateBlueprint(
 function Loader({ phase }: { phase: 'loading' | 'generating' }) {
   const message =
     phase === 'generating'
-      ? 'Bugbite is reading your answers and writing your blueprint. This takes about 15 seconds.'
+      ? 'Bugbite is reading your answers and writing your blueprint. Hang tight.'
       : 'Bugbite is opening your blueprint…'
   return (
     <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-8 text-center">
-      <div
-        aria-hidden
-        className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-zinc-200 border-t-brand"
-      />
+      <div className="relative mx-auto flex h-16 w-16 items-center justify-center">
+        <div
+          aria-hidden
+          className="absolute inset-0 animate-spin rounded-full border-2 border-zinc-200 border-t-brand"
+        />
+        <Image
+          src="/brand/logo-mark.png"
+          alt=""
+          width={397}
+          height={294}
+          className="relative h-9 w-auto mix-blend-multiply"
+        />
+      </div>
       <p className="mt-4 text-sm leading-relaxed text-zinc-700">{message}</p>
     </div>
   )
