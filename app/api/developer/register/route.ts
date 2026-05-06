@@ -10,6 +10,11 @@ import {
   sendDeveloperRegisteredToAdmin,
   sendDeveloperRegisteredToApplicant,
 } from '@/lib/email/sender'
+import {
+  buildDecisionUrl,
+  signApprovalToken,
+} from '@/lib/developer/approvalToken'
+import { resolveAppUrl } from '@/lib/queue/qstash'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -132,7 +137,10 @@ export async function POST(req: Request) {
   }
 
   // ─── Insert ─────────────────────────────────────────────────────────
-  const { error: insertError } = await supabase
+  // .select('id').single() so we can sign approval tokens for the row
+  // we just created. Without it the admin notification email can't
+  // include working Approve / Reject links.
+  const { data: inserted, error: insertError } = await supabase
     .from('developer_partners')
     .insert({
       name: data.name,
@@ -148,12 +156,14 @@ export async function POST(req: Request) {
       // verified, active, plan, jobs_completed, etc. all use schema
       // defaults — explicit insert keeps insert payload clean.
     })
+    .select('id')
+    .single()
 
-  if (insertError) {
+  if (insertError || !inserted) {
     // Defence-in-depth — if the pre-flight check raced with another
     // insert and we hit the unique index, treat it as already-registered
     // rather than 500ing the applicant.
-    if (insertError.code === '23505') {
+    if (insertError?.code === '23505') {
       return Response.json(
         { ok: true, already_registered: true, verified: false },
         { status: 200 },
@@ -161,8 +171,8 @@ export async function POST(req: Request) {
     }
     console.error('[developer/register] insert failed', {
       email: data.email,
-      error: insertError.message,
-      code: insertError.code,
+      error: insertError?.message,
+      code: insertError?.code,
     })
     return Response.json(
       { error: 'Could not save your registration. Please try again.' },
@@ -170,12 +180,41 @@ export async function POST(req: Request) {
     )
   }
 
+  const partnerId = inserted.id as string
+
+  // ─── Sign approval tokens + build admin decision URLs ──────────────
+  // Tokens are HMAC-signed JWTs (jose HS256), 7-day expiry. The route
+  // /api/developer/decide validates them and applies the state change
+  // idempotently. Failure here (e.g. APPROVAL_TOKEN_SECRET unset) is
+  // caught and logged — the registration still succeeds, but the admin
+  // email falls back to a no-link variant via empty URL strings, which
+  // /api/cron/auto-approve-developers will catch up on at 48h regardless.
+  const appUrl = resolveAppUrl() ?? 'https://fixmysite.in'
+  let approveUrl = ''
+  let rejectUrl = ''
+  try {
+    const [approveToken, rejectToken] = await Promise.all([
+      signApprovalToken({ partnerId, action: 'approve' }),
+      signApprovalToken({ partnerId, action: 'reject' }),
+    ])
+    approveUrl = buildDecisionUrl({ appUrl, token: approveToken })
+    rejectUrl = buildDecisionUrl({ appUrl, token: rejectToken })
+  } catch (err) {
+    console.error(
+      '[developer/register] approval token signing failed — admin email will lack one-click links, auto-approval cron will still cover this row',
+      {
+        partner_id: partnerId,
+        error: err instanceof Error ? err.message : err,
+      },
+    )
+  }
+
   // ─── Notification emails (fire-and-log, never block the response) ──
   // Applicant: confirmation that the application landed + what happens
-  // next. Admin: inline summary so the founder can review from inbox
-  // (no admin panel for partners yet — flip verified=true in Supabase
-  // when ready to approve). Email failure is logged loudly but the
-  // applicant still gets the 201 — registration row is the durable fact.
+  // next. Admin: inline summary + signed Approve / Reject one-click
+  // links so the founder can decide from inbox without logging into
+  // Supabase. Email failure is logged loudly but the applicant still
+  // gets the 201 — registration row is the durable fact.
   //
   // We deliberately await both sends rather than fire-and-forget so
   // the serverless function isn't killed mid-Resend-call. Per existing
@@ -198,6 +237,8 @@ export async function POST(req: Request) {
           : null,
       yearsExp: data.years_exp,
       registeredAt,
+      approveUrl,
+      rejectUrl,
     }),
   ])
   if (!applicantResult.ok) {

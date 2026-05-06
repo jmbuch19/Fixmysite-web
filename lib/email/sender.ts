@@ -587,10 +587,15 @@ export async function sendDeveloperRegisteredToApplicant(args: {
 
 /**
  * Notify ADMIN_EMAIL when a fresh developer partner registration lands.
- * No admin panel exists yet — the email itself is the review surface,
- * so all applicant fields are summarised inline. Admin manually flips
- * `verified=true` in Supabase once they decide to approve. Skipped
- * (no_api_key) if ADMIN_EMAIL is unset; never throws.
+ * The email is the review surface and the action surface — applicant
+ * fields summarised inline, plus signed one-click Approve / Reject
+ * links so the founder can decide from their inbox without logging
+ * into Supabase. Skipped (no_api_key) if ADMIN_EMAIL is unset.
+ *
+ * If neither link is clicked within 48 hours, the auto-approval cron
+ * (/api/cron/auto-approve-developers) flips the row and fires the
+ * partner's welcome email automatically. Stated in the email body so
+ * the founder knows the no-action default.
  */
 export async function sendDeveloperRegisteredToAdmin(args: {
   name: string
@@ -601,6 +606,8 @@ export async function sendDeveloperRegisteredToAdmin(args: {
   portfolioUrl: string | null
   yearsExp: number
   registeredAt: string
+  approveUrl: string
+  rejectUrl: string
 }): Promise<SendResult> {
   const adminAddr = process.env.ADMIN_EMAIL?.trim()
   if (!adminAddr) {
@@ -622,16 +629,82 @@ export async function sendDeveloperRegisteredToAdmin(args: {
     `Portfolio: ${args.portfolioUrl ?? '(none provided)'}`,
     `Submitted: ${formatTimestamp(args.registeredAt)}`,
     '',
-    'Review and approve in Supabase: developer_partners table — set verified=true to send the approval (manual until the admin panel is built).',
-    '',
-    '— fixmysite.in',
   ]
+
+  // Fall back gracefully if approval-token signing failed upstream
+  // (e.g. APPROVAL_TOKEN_SECRET unset on the host). The registration
+  // already saved; the founder needs to know they can't click-approve
+  // from inbox until the env var is fixed, but auto-approval at 48h
+  // still covers this row.
+  if (args.approveUrl && args.rejectUrl) {
+    lines.push(
+      'Approve and notify the partner:',
+      args.approveUrl,
+      '',
+      'Reject (silent — no email to the applicant):',
+      args.rejectUrl,
+      '',
+      'No action needed — Bugbite auto-approves any pending registration after 48 hours and fires the same welcome email. To take a partner down later, set active=false in Supabase.',
+    )
+  } else {
+    lines.push(
+      '⚠️ Approval links are unavailable — APPROVAL_TOKEN_SECRET is not set on the host. Until that is fixed, approve manually in Supabase: developer_partners table → set verified=true on this row. Auto-approval cron will still flip pending rows after 48 hours.',
+    )
+  }
+
+  lines.push('', '— fixmysite.in')
 
   return send({
     to: adminAddr,
     subject,
     text: lines.join('\n'),
     context: 'developer_registered_admin',
+  })
+}
+
+// ─── 13. Developer partner approved — to partner ─────────────────────
+
+/**
+ * Welcome email fired the moment a partner's row flips to verified=true.
+ * Three trigger paths feed this template:
+ *   1. Founder clicks Approve in the admin notification email
+ *   2. 48h cron auto-approves a pending row
+ *   3. (Future) admin panel "Approve" button
+ *
+ * Tone: confident welcome, no "we're new" hedging. Lists the city
+ * and the skills they registered with so the email feels personal,
+ * not template. Honest about what's next: lead routing happens
+ * manually until automation ships, and the badge is visible once
+ * partner profiles ship.
+ */
+export async function sendDeveloperApprovedToPartner(args: {
+  to: string
+  name: string
+  city: string
+  skills: ReadonlyArray<string>
+}): Promise<SendResult> {
+  const firstName = args.name.trim().split(/\s+/)[0] ?? args.name.trim()
+  const skillSummary = args.skills.join(' / ')
+  const subject = "You're a fixmysite.in Certified Partner"
+  const text = [
+    `Hi ${firstName},`,
+    '',
+    `Bugbite has approved your application. Welcome to the partner network.`,
+    '',
+    `When Indian businesses near ${args.city} need a website fix or build that matches your skills (${skillSummary}), Bugbite will reach out with the lead details — site URL, the issues to fix, and a budget signal you can quote against.`,
+    '',
+    'Your "fixmysite.in Certified Partner" badge is ready for your public profile when partner profiles ship — until then, mention the network in your portfolio if you would like.',
+    '',
+    'Questions, or want to update your skills or city? Reply to this email or write to hello@fixmysite.in.',
+    '',
+    '— fixmysite.in',
+  ].join('\n')
+
+  return send({
+    to: args.to,
+    subject,
+    text,
+    context: 'developer_approved_partner',
   })
 }
 
