@@ -5,7 +5,7 @@ import type { Metadata } from 'next'
 export const metadata: Metadata = {
   title: 'For developers — fixmysite.in',
   description:
-    'Join the fixmysite.in partner network. Get matched to Indian small-business clients near you. Receive WhatsApp leads, build your reputation.',
+    'Join the fixmysite.in partner network. Get matched to Indian small-business clients near you. Receive lead notifications, build your reputation.',
 }
 
 /**
@@ -121,8 +121,9 @@ export default function DeveloperLandingPage() {
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-zinc-700">
                   Get matched to Indian small-business clients near you.
-                  Receive lead notifications on WhatsApp. Build your
-                  rating with every job. Free to register.
+                  Receive lead notifications when work in your city and
+                  skills comes in. Build your rating with every job.
+                  Free to register.
                 </p>
                 <Link
                   href="/developer/join"
@@ -154,8 +155,8 @@ export default function DeveloperLandingPage() {
               />
               <Step
                 n={3}
-                title="You get a WhatsApp lead notification"
-                body="Site URL, the city it's in, the issues to fix, the budget signal. Reply YES to connect — Bugbite shares your number with the owner."
+                title="Bugbite sends you the lead"
+                body="Site URL, the city it's in, the issues to fix, the budget signal. Confirm you want it and Bugbite connects you with the owner."
               />
               <Step
                 n={4}

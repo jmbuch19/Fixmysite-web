@@ -6,7 +6,7 @@ import { RegisterForm } from '@/components/developer/RegisterForm'
 export const metadata: Metadata = {
   title: 'Join the partner network — fixmysite.in',
   description:
-    'Register as a fixmysite.in certified partner. Get matched to Indian small-business clients near you and receive WhatsApp leads.',
+    'Register as a fixmysite.in certified partner. Get matched to Indian small-business clients near you and receive lead notifications.',
 }
 
 export default function DeveloperJoinPage() {
@@ -48,8 +48,8 @@ export default function DeveloperJoinPage() {
           </h1>
           <p className="mt-3 text-base leading-relaxed text-zinc-700">
             Tell Bugbite a bit about you. Approved partners receive lead
-            notifications on WhatsApp and get a "fixmysite.in Certified
-            Partner" badge on their public profile.
+            notifications when matching work comes in and get a
+            "fixmysite.in Certified Partner" badge on their public profile.
           </p>
 
           <div className="mt-8">

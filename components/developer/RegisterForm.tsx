@@ -50,7 +50,7 @@ export function RegisterForm() {
     if (name.trim().length < 2) return 'Please enter your full name.'
     if (!EMAIL_RE.test(email.trim())) return 'Please enter a valid email address.'
     if (!PHONE_RE.test(phone.trim()))
-      return 'Please enter a valid phone or WhatsApp number.'
+      return 'Please enter a valid phone number.'
     if (city.trim().length < 2) return 'Please enter your city.'
     if (skills.size === 0) return 'Please select at least one skill.'
     if (yearsExp === null) return 'Please pick your years of experience.'
@@ -174,7 +174,7 @@ export function RegisterForm() {
 
       {/* ─── Phone + City ─── */}
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="WhatsApp number" htmlFor="dev-phone" required>
+        <Field label="Phone number" htmlFor="dev-phone" required>
           <input
             id="dev-phone"
             type="tel"
@@ -434,8 +434,8 @@ function SuccessCard({ alreadyRegistered }: { alreadyRegistered: boolean }) {
       </h2>
       <p className="mt-3 text-sm leading-relaxed text-emerald-900">
         {alreadyRegistered
-          ? "This email is already in our queue. If your application is still pending, Bugbite will reach out within 48 hours of your original submission. Already approved? Watch your WhatsApp for lead notifications."
-          : "Bugbite will review your application within 48 hours. Once approved, you will receive a 'fixmysite.in Certified Partner' badge and start receiving lead notifications on the WhatsApp number you provided."}
+          ? "This email is already in our queue. If your application is still pending, Bugbite will reach out within 48 hours of your original submission. Already approved? Bugbite is in touch when leads come in for your city and skills."
+          : "Bugbite will review your application within 48 hours. Once approved, you will receive a 'fixmysite.in Certified Partner' badge and Bugbite will be in touch when leads come in for your city and skills."}
       </p>
       <p className="mt-3 text-sm text-emerald-900/80">
         Questions in the meantime — write to{' '}

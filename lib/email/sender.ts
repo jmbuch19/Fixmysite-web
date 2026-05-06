@@ -541,6 +541,100 @@ export async function sendBlueprintToDeveloper(args: {
   })
 }
 
+// ─── 11. Developer partner registered — to applicant ────────────────
+
+/**
+ * Triggered from /api/developer/register on first successful insert.
+ * Confirms the partner network application has been received and what
+ * happens next (48-hour review, lead notifications when matching work
+ * comes in, Certified Partner badge once approved).
+ *
+ * Only fires on the new-insert path — duplicate registrations already
+ * got this email the first time and do not need a second copy.
+ */
+export async function sendDeveloperRegisteredToApplicant(args: {
+  to: string
+  name: string
+}): Promise<SendResult> {
+  const firstName = args.name.trim().split(/\s+/)[0] ?? args.name.trim()
+  const subject = 'Bugbite has your developer partner application'
+  const text = [
+    `Hi ${firstName},`,
+    '',
+    'Thanks for applying to the fixmysite.in partner network. Bugbite has your application on file.',
+    '',
+    'What happens next:',
+    '  - Bugbite reviews your application within 48 hours',
+    '  - Once approved, Bugbite is in touch when Indian businesses near you need a website fix or build that matches your skills',
+    "  - You also get a \"fixmysite.in Certified Partner\" badge for your public profile",
+    '',
+    'No further action needed from you right now. We will be in touch.',
+    '',
+    'Questions in the meantime? Reply to this email or write to hello@fixmysite.in.',
+    '',
+    '— fixmysite.in',
+  ].join('\n')
+
+  return send({
+    to: args.to,
+    subject,
+    text,
+    context: 'developer_registered_applicant',
+  })
+}
+
+// ─── 12. Developer partner registered — to admin ────────────────────
+
+/**
+ * Notify ADMIN_EMAIL when a fresh developer partner registration lands.
+ * No admin panel exists yet — the email itself is the review surface,
+ * so all applicant fields are summarised inline. Admin manually flips
+ * `verified=true` in Supabase once they decide to approve. Skipped
+ * (no_api_key) if ADMIN_EMAIL is unset; never throws.
+ */
+export async function sendDeveloperRegisteredToAdmin(args: {
+  name: string
+  email: string
+  phone: string
+  city: string
+  skills: ReadonlyArray<string>
+  portfolioUrl: string | null
+  yearsExp: number
+  registeredAt: string
+}): Promise<SendResult> {
+  const adminAddr = process.env.ADMIN_EMAIL?.trim()
+  if (!adminAddr) {
+    console.warn(
+      '[email] ADMIN_EMAIL not set — developer admin notification skipped',
+      { applicant_email: args.email },
+    )
+    return { ok: false, reason: 'no_api_key' }
+  }
+
+  const subject = `New developer partner registration — ${args.name} (${args.city})`
+  const lines = [
+    `Name: ${args.name}`,
+    `Email: ${args.email}`,
+    `Phone: ${args.phone}`,
+    `City: ${args.city}`,
+    `Years of experience: ${args.yearsExp}`,
+    `Skills: ${args.skills.join(', ')}`,
+    `Portfolio: ${args.portfolioUrl ?? '(none provided)'}`,
+    `Submitted: ${formatTimestamp(args.registeredAt)}`,
+    '',
+    'Review and approve in Supabase: developer_partners table — set verified=true to send the approval (manual until the admin panel is built).',
+    '',
+    '— fixmysite.in',
+  ]
+
+  return send({
+    to: adminAddr,
+    subject,
+    text: lines.join('\n'),
+    context: 'developer_registered_admin',
+  })
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────
 
 function formatTimestamp(iso: string): string {

@@ -6,6 +6,10 @@ import {
   rateLimitResponse,
 } from '@/lib/security/rateLimit'
 import { DEVELOPER_SKILLS, YEARS_EXP_OPTIONS } from '@/lib/developer/skills'
+import {
+  sendDeveloperRegisteredToAdmin,
+  sendDeveloperRegisteredToApplicant,
+} from '@/lib/email/sender'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -166,10 +170,53 @@ export async function POST(req: Request) {
     )
   }
 
+  // ─── Notification emails (fire-and-log, never block the response) ──
+  // Applicant: confirmation that the application landed + what happens
+  // next. Admin: inline summary so the founder can review from inbox
+  // (no admin panel for partners yet — flip verified=true in Supabase
+  // when ready to approve). Email failure is logged loudly but the
+  // applicant still gets the 201 — registration row is the durable fact.
+  //
+  // We deliberately await both sends rather than fire-and-forget so
+  // the serverless function isn't killed mid-Resend-call. Per existing
+  // patterns in /api/blueprint/payment/verify and /api/brief/payment/verify.
+  const registeredAt = new Date().toISOString()
+  const [applicantResult, adminResult] = await Promise.all([
+    sendDeveloperRegisteredToApplicant({
+      to: data.email,
+      name: data.name,
+    }),
+    sendDeveloperRegisteredToAdmin({
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      city: data.city,
+      skills: data.skills,
+      portfolioUrl:
+        data.portfolio_url && data.portfolio_url.length > 0
+          ? data.portfolio_url
+          : null,
+      yearsExp: data.years_exp,
+      registeredAt,
+    }),
+  ])
+  if (!applicantResult.ok) {
+    console.error('[developer/register] applicant email failed', {
+      email: data.email,
+      reason: applicantResult.reason,
+      error: applicantResult.error,
+    })
+  }
+  if (!adminResult.ok && adminResult.reason !== 'no_api_key') {
+    console.error('[developer/register] admin email failed', {
+      applicant_email: data.email,
+      reason: adminResult.reason,
+      error: adminResult.error,
+    })
+  }
+
   // TODO(posthog): fire 'developer_registered' server-side event with
   // { city, skills_count } per SPEC §19 PostHog table.
-  // TODO(email): send admin notification + applicant confirmation email
-  // when approval flow ships in a follow-up migration.
 
   return Response.json(
     {
